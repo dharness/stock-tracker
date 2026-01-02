@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import "./App.css";
 import PortfolioChart from "./components/PortfolioChart";
+import PortfolioTable from "./components/PortfolioTable";
 import StockChart from "./components/StockChart";
+import StockTable from "./components/StockTable";
 import { STOCKS } from "./portfolios";
 import {
   fetchMultipleStockDataProgressive,
@@ -15,7 +17,7 @@ import {
 
 type CombinedDataPoint = {
   date: string;
-  [symbol: string]: string | number;
+  [symbol: string]: string | number | null;
 };
 
 function App() {
@@ -30,6 +32,42 @@ function App() {
   const [loadedStocks, setLoadedStocks] = useState<string[]>([]);
   const [showTooltip, setShowTooltip] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [portfolioView, setPortfolioView] = useState<"chart" | "table">(
+    "chart"
+  );
+  const [stockView, setStockView] = useState<"chart" | "table">("chart");
+  const [year, setYear] = useState<2025 | 2026>(2025);
+
+  // Helper to generate empty data points for all expected dates
+  const generateEmptyDataPoints = (
+    stocks: string[],
+    yearToUse: number
+  ): CombinedDataPoint[] => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+
+    const dataPoints: CombinedDataPoint[] = [];
+    const maxMonth = yearToUse === currentYear ? currentMonth : 12;
+
+    // Generate data points for each day of each expected month
+    for (let month = 1; month <= maxMonth; month++) {
+      const daysInMonth = new Date(yearToUse, month, 0).getDate();
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${yearToUse}-${String(month).padStart(
+          2,
+          "0"
+        )}-${String(day).padStart(2, "0")}`;
+        const dataPoint: CombinedDataPoint = { date: dateStr };
+        stocks.forEach((symbol) => {
+          dataPoint[symbol] = null;
+        });
+        dataPoints.push(dataPoint);
+      }
+    }
+
+    return dataPoints;
+  };
 
   const combineStockData = (
     stockDataMap: Map<string, PriceData[]>,
@@ -52,7 +90,7 @@ function App() {
         stocks.forEach((symbol) => {
           const stockData = stockDataMap.get(symbol);
           const point = stockData?.find((p) => p.date === date);
-          dataPoint[symbol] = point?.price ?? 0;
+          dataPoint[symbol] = point?.price ?? null; // Use null instead of 0 for missing data
         });
         combined.push(dataPoint);
       });
@@ -60,10 +98,10 @@ function App() {
     return combined;
   };
 
-  // Load data from localStorage on mount
+  // Load data from localStorage on mount and when year changes
   useEffect(() => {
     const loadCachedData = () => {
-      const storedData = loadStockDataFromStorage();
+      const storedData = loadStockDataFromStorage(year);
       if (storedData) {
         const stockDataMap = storedDataToMap(storedData.stockData);
         const combined = combineStockData(
@@ -72,18 +110,59 @@ function App() {
         );
         setCombinedData(combined);
         setLoadedStocks(storedData.loadedStocks);
-        console.log("Loaded cached data from localStorage");
+        console.log(`Loaded cached data from localStorage for year ${year}`);
+      } else {
+        // Clear data if no cached data for this year
+        setCombinedData([]);
+        setLoadedStocks([]);
       }
       setIsInitialLoad(false);
     };
 
     loadCachedData();
-  }, []);
+  }, [year]);
+
+  // Check if we should fetch data for the given year
+  const shouldFetchDataForYear = (yearToCheck: number): boolean => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1; // 1-12
+
+    // If year is in the future, don't fetch
+    if (yearToCheck > currentYear) {
+      return false;
+    }
+
+    // If year is current year, check if we've completed at least one month
+    if (yearToCheck === currentYear) {
+      // We need at least one complete month (currentMonth >= 2 means January is complete)
+      // Or if we're past the first day of February, January is complete
+      return currentMonth >= 2 || (currentMonth === 1 && today.getDate() > 1);
+    }
+
+    // For past years, always fetch
+    return true;
+  };
 
   const handleFetchData = async () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Check if we should fetch data for this year
+      if (!shouldFetchDataForYear(year)) {
+        console.log(
+          `Skipping data fetch for year ${year} - no complete months yet`
+        );
+        // Clear data but keep loadedStocks so charts/tables know which symbols to show
+        // This allows charts to display with "-" for missing data
+        setCombinedData([]);
+        setLoadedStocks(STOCKS); // Set to all stocks so charts display all symbols
+        setProgress(null);
+        setLoading(false);
+        return;
+      }
+
       // Clear existing data when reloading
       setCombinedData([]);
       setLoadedStocks([]);
@@ -106,13 +185,14 @@ function App() {
           const combined = combineStockData(stockDataMap, STOCKS);
           setCombinedData(combined);
         },
-        12000 // 12 seconds delay for 5 requests per minute
+        year
+        // Starts with 2 second delay, increases to 12 seconds if rate limited
       );
 
       // Save to localStorage after all stocks are loaded
       const finalLoadedStocks = Array.from(stockDataMap.keys());
-      saveStockDataToStorage(stockDataMap, finalLoadedStocks);
-      console.log("Saved stock data to localStorage");
+      saveStockDataToStorage(stockDataMap, finalLoadedStocks, year);
+      console.log(`Saved stock data to localStorage for year ${year}`);
 
       setProgress(null);
     } catch (err) {
@@ -128,132 +208,207 @@ function App() {
 
   return (
     <div className="App">
+      <div className="header-bar">
+        <div className="header-bar-content">
+          <div
+            style={{ position: "relative" }}
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+          >
+            <button
+              onClick={handleFetchData}
+              disabled={loading}
+              className="reload-button"
+            >
+              {combinedData.length > 0 ? "Reload Data" : "Load Stock Data"}
+            </button>
+            {showTooltip && (
+              <div className="tooltip-card">
+                <div style={{ marginBottom: "4px", fontWeight: "600" }}>
+                  Estimated Time:
+                </div>
+                <div>{Math.ceil((STOCKS.length * 12) / 60)} minute(s)</div>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    marginTop: "4px",
+                    opacity: 0.8,
+                  }}
+                >
+                  ({STOCKS.length} stocks × 12 seconds each)
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="year-toggle">
+            <span className="year-label">Year:</span>
+            <select
+              className="year-dropdown"
+              value={year}
+              onChange={(e) => setYear(parseInt(e.target.value) as 2025 | 2026)}
+            >
+              <option value={2025}>2025</option>
+              <option value={2026}>2026</option>
+            </select>
+          </div>
+        </div>
+        {loading && progress && (
+          <div style={{ marginTop: "20px", color: "#000000" }}>
+            <p style={{ marginBottom: "10px", fontWeight: "600" }}>
+              Loading stocks... ({progress.completed}/{progress.total})
+            </p>
+            {progress.current && (
+              <p>
+                Currently loading: <strong>{progress.current}</strong>
+              </p>
+            )}
+            {loadedStocks.length > 0 && (
+              <div style={{ marginTop: "10px" }}>
+                <p
+                  style={{
+                    fontSize: "14px",
+                    opacity: 0.9,
+                    marginBottom: "5px",
+                  }}
+                >
+                  Loaded: {loadedStocks.join(", ")}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+        {error && (
+          <p style={{ color: "#000000", marginTop: "20px", fontWeight: "600" }}>
+            Error: {error}
+          </p>
+        )}
+      </div>
       <header className="App-header">
         <h1>Stock Tracker</h1>
       </header>
       <main className="App-main">
         <div className="stocks-container">
-          {combinedData.length > 0 && (
-            <div className="stock-card">
-              <h2 className="stock-symbol">Portfolio Values</h2>
-              <PortfolioChart data={combinedData} />
-            </div>
+          {(combinedData.length > 0 || loadedStocks.length > 0) && (
+            <>
+              <h2 className="section-header">Portfolios</h2>
+              <div className="tabbed-card">
+                <div className="tabs-container">
+                  <button
+                    onClick={() => setPortfolioView("chart")}
+                    className={`tab-button ${
+                      portfolioView === "chart" ? "active" : ""
+                    }`}
+                  >
+                    Chart
+                  </button>
+                  <button
+                    onClick={() => setPortfolioView("table")}
+                    className={`tab-button ${
+                      portfolioView === "table" ? "active" : ""
+                    }`}
+                  >
+                    Table (YTD Growth)
+                  </button>
+                </div>
+                <div className="tabbed-card-content">
+                  {portfolioView === "chart" ? (
+                    <PortfolioChart
+                      data={
+                        combinedData.length > 0
+                          ? combinedData
+                          : generateEmptyDataPoints(loadedStocks, year)
+                      }
+                      year={year}
+                    />
+                  ) : (
+                    <PortfolioTable
+                      data={
+                        combinedData.length > 0
+                          ? combinedData
+                          : generateEmptyDataPoints(loadedStocks, year)
+                      }
+                      year={year}
+                    />
+                  )}
+                </div>
+              </div>
+            </>
           )}
-          <div className="stock-card">
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "20px",
-              }}
-            >
-              <h2 className="stock-symbol">All Stocks</h2>
-              <div
-                style={{ position: "relative" }}
-                onMouseEnter={() => setShowTooltip(true)}
-                onMouseLeave={() => setShowTooltip(false)}
-              >
-                <button
-                  onClick={handleFetchData}
-                  disabled={loading}
-                  style={{
-                    padding: "12px 24px",
-                    fontSize: "16px",
-                    backgroundColor: "#667eea",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "8px",
-                    cursor: loading ? "not-allowed" : "pointer",
-                    opacity: loading ? 0.6 : 1,
-                  }}
-                >
-                  {combinedData.length > 0 ? "Reload Data" : "Load Stock Data"}
-                </button>
-                {showTooltip && (
-                  <div
+          <div>
+            <h2 className="section-header">All Stocks</h2>
+            {combinedData.length === 0 &&
+              loadedStocks.length === 0 &&
+              !loading &&
+              !isInitialLoad && (
+                <div className="stock-card">
+                  <p
                     style={{
-                      position: "absolute",
-                      top: "100%",
-                      right: 0,
-                      marginTop: "8px",
-                      padding: "12px",
-                      backgroundColor: "#333",
-                      color: "white",
-                      borderRadius: "8px",
-                      fontSize: "14px",
-                      whiteSpace: "nowrap",
-                      zIndex: 1000,
-                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                      textAlign: "center",
+                      color: "#666",
+                      marginBottom: "20px",
                     }}
                   >
-                    <div style={{ marginBottom: "4px", fontWeight: "600" }}>
-                      Estimated Time:
-                    </div>
-                    <div>{Math.ceil((STOCKS.length * 12) / 60)} minute(s)</div>
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        marginTop: "4px",
-                        opacity: 0.8,
-                      }}
-                    >
-                      ({STOCKS.length} stocks × 12 seconds each)
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            {combinedData.length === 0 && !loading && !isInitialLoad && (
-              <p
-                style={{
-                  textAlign: "center",
-                  color: "#666",
-                  marginBottom: "20px",
-                }}
-              >
-                Click the button above to load stock data
-              </p>
-            )}
-            {isInitialLoad && (
-              <p
-                style={{
-                  textAlign: "center",
-                  color: "#666",
-                  marginBottom: "20px",
-                }}
-              >
-                Loading cached data...
-              </p>
-            )}
-            {loading && progress && (
-              <div style={{ marginBottom: "20px" }}>
-                <p style={{ marginBottom: "10px", fontWeight: "600" }}>
-                  Loading stocks... ({progress.completed}/{progress.total})
-                </p>
-                {progress.current && (
-                  <p style={{ color: "#666" }}>
-                    Currently loading: <strong>{progress.current}</strong>
+                    Click the button above to load stock data
                   </p>
-                )}
-                {loadedStocks.length > 0 && (
-                  <div style={{ marginTop: "10px" }}>
-                    <p
-                      style={{
-                        fontSize: "14px",
-                        color: "#666",
-                        marginBottom: "5px",
-                      }}
-                    >
-                      Loaded: {loadedStocks.join(", ")}
-                    </p>
-                  </div>
-                )}
+                </div>
+              )}
+            {isInitialLoad && (
+              <div className="stock-card">
+                <p
+                  style={{
+                    textAlign: "center",
+                    color: "#666",
+                    marginBottom: "20px",
+                  }}
+                >
+                  Loading cached data...
+                </p>
               </div>
             )}
-            {error && <p style={{ color: "red" }}>Error: {error}</p>}
-            {combinedData.length > 0 && (
-              <StockChart data={combinedData} symbols={loadedStocks} />
+            {(combinedData.length > 0 || loadedStocks.length > 0) && (
+              <div className="tabbed-card">
+                <div className="tabs-container">
+                  <button
+                    onClick={() => setStockView("chart")}
+                    className={`tab-button ${
+                      stockView === "chart" ? "active" : ""
+                    }`}
+                  >
+                    Chart
+                  </button>
+                  <button
+                    onClick={() => setStockView("table")}
+                    className={`tab-button ${
+                      stockView === "table" ? "active" : ""
+                    }`}
+                  >
+                    Table (YTD Growth)
+                  </button>
+                </div>
+                <div className="tabbed-card-content">
+                  {stockView === "chart" ? (
+                    <StockChart
+                      data={
+                        combinedData.length > 0
+                          ? combinedData
+                          : generateEmptyDataPoints(loadedStocks, year)
+                      }
+                      symbols={loadedStocks}
+                      year={year}
+                    />
+                  ) : (
+                    <StockTable
+                      data={
+                        combinedData.length > 0
+                          ? combinedData
+                          : generateEmptyDataPoints(loadedStocks, year)
+                      }
+                      symbols={loadedStocks}
+                      year={year}
+                    />
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>

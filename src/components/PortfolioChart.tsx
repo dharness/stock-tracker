@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -13,17 +13,18 @@ import { PORTFOLIOS } from "../portfolios";
 
 type CombinedPriceData = {
   date: string;
-  [symbol: string]: string | number;
+  [symbol: string]: string | number | null;
 };
 
 interface PortfolioChartProps {
   data: CombinedPriceData[];
+  year: number;
 }
 
 // Color palette for different people
 const PORTFOLIO_COLORS = ["#667eea", "#764ba2", "#f093fb"];
 
-const PortfolioChart: React.FC<PortfolioChartProps> = ({ data }) => {
+const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
   // Format date for display (show only month/day)
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -82,7 +83,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data }) => {
         Object.keys(portfolio).forEach((symbol) => {
           const currentPrice = point[symbol];
           const numShares = shares[person][symbol];
-          if (typeof currentPrice === "number" && currentPrice > 0 && numShares > 0) {
+          if (currentPrice !== null && currentPrice !== undefined && typeof currentPrice === "number" && currentPrice > 0 && numShares > 0) {
             totalValue += numShares * currentPrice;
           }
         });
@@ -143,7 +144,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data }) => {
     portfolioData.forEach((point) => {
       people.forEach((person) => {
         const value = point[person];
-        if (typeof value === "number" && value > 0) {
+        if (value !== null && value !== undefined && typeof value === "number" && value > 0) {
           min = Math.min(min, value);
           max = Math.max(max, value);
         }
@@ -163,31 +164,63 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data }) => {
 
   const [yMin, yMax] = getYAxisDomain();
 
+  // Detect mobile screen size with responsive hook
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+  
+  // Adjust margins and height for mobile
+  const chartMargin = isMobile
+    ? { top: 10, right: 5, left: 0, bottom: 10 }
+    : { top: 20, right: 30, left: 20, bottom: 20 };
+  const chartHeight = isMobile ? 300 : 400;
+
   return (
     <div className="stock-chart-container">
-      <ResponsiveContainer width="100%" height={400}>
+      <ResponsiveContainer width="100%" height={chartHeight}>
         <LineChart
           data={portfolioData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+          margin={chartMargin}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
           <XAxis
             dataKey="date"
             tickFormatter={formatDate}
             stroke="#666"
-            style={{ fontSize: "12px" }}
+            style={{ fontSize: isMobile ? "10px" : "12px" }}
+            interval={isMobile ? "preserveStartEnd" : undefined}
+            angle={isMobile ? -45 : 0}
+            textAnchor={isMobile ? "end" : "middle"}
+            height={isMobile ? 60 : undefined}
           />
           <YAxis
             stroke="#666"
-            style={{ fontSize: "12px" }}
+            style={{ fontSize: isMobile ? "10px" : "12px" }}
             domain={[yMin, yMax]}
             tickFormatter={formatCurrency}
+            width={isMobile ? 50 : undefined}
           />
           <Tooltip
             formatter={(
               value: number | undefined,
               name: string | undefined
-            ) => [`$${value?.toFixed(2) ?? ""}`, name ?? ""]}
+            ) => {
+              if (value === null || value === undefined) {
+                return ["-", name ?? ""];
+              }
+              return [
+                `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                name ?? "",
+              ];
+            }}
             labelFormatter={(label) => `Date: ${label}`}
             contentStyle={{
               backgroundColor: "#fff",

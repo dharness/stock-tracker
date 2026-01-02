@@ -3,8 +3,8 @@
 
 import { PriceData } from "./stockDataService";
 
-const STORAGE_KEY = "stock-tracker-data";
-const STORAGE_TIMESTAMP_KEY = "stock-tracker-timestamp";
+const getStorageKey = (year: number) => `stock-tracker-data-${year}`;
+const getStorageTimestampKey = (year: number) => `stock-tracker-timestamp-${year}`;
 
 /**
  * Checks if localStorage is available and accessible
@@ -36,10 +36,12 @@ export interface StoredData {
  * Saves stock data to localStorage
  * @param stockData Map of symbol to price data array
  * @param loadedStocks Array of loaded stock symbols
+ * @param year Year for which data is being saved
  */
 export const saveStockDataToStorage = (
   stockData: Map<string, PriceData[]>,
-  loadedStocks: string[]
+  loadedStocks: string[],
+  year: number = 2025
 ): void => {
   if (!isLocalStorageAvailable()) {
     console.warn("localStorage is not available. Data will not be saved.");
@@ -66,23 +68,23 @@ export const saveStockDataToStorage = (
       console.warn("Data size exceeds 5MB. May not save on some mobile devices.");
     }
 
-    localStorage.setItem(STORAGE_KEY, dataString);
-    localStorage.setItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
+    localStorage.setItem(getStorageKey(year), dataString);
+    localStorage.setItem(getStorageTimestampKey(year), Date.now().toString());
   } catch (error) {
     // Handle quota exceeded errors (common on mobile)
     if (error instanceof DOMException && (error.code === 22 || error.name === "QuotaExceededError")) {
       console.warn("localStorage quota exceeded. Clearing old data and retrying...");
       try {
         // Try clearing old data and saving again
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(STORAGE_TIMESTAMP_KEY);
+        localStorage.removeItem(getStorageKey(year));
+        localStorage.removeItem(getStorageTimestampKey(year));
         const retryData: StoredData = {
           stockData: stockDataObj,
           loadedStocks,
           timestamp: Date.now(),
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(retryData));
-        localStorage.setItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
+        localStorage.setItem(getStorageKey(year), JSON.stringify(retryData));
+        localStorage.setItem(getStorageTimestampKey(year), Date.now().toString());
       } catch (retryError) {
         console.error("Error saving stock data to localStorage after retry:", retryError);
       }
@@ -94,16 +96,17 @@ export const saveStockDataToStorage = (
 
 /**
  * Loads stock data from localStorage
+ * @param year Year for which to load data
  * @returns Stored data or null if not found/invalid
  */
-export const loadStockDataFromStorage = (): StoredData | null => {
+export const loadStockDataFromStorage = (year: number = 2025): StoredData | null => {
   if (!isLocalStorageAvailable()) {
     console.warn("localStorage is not available. Cannot load cached data.");
     return null;
   }
 
   try {
-    const storedDataString = localStorage.getItem(STORAGE_KEY);
+    const storedDataString = localStorage.getItem(getStorageKey(year));
     if (!storedDataString) {
       return null;
     }
@@ -144,15 +147,16 @@ export const storedDataToMap = (
 
 /**
  * Clears stored stock data from localStorage
+ * @param year Year for which to clear data
  */
-export const clearStoredStockData = (): void => {
+export const clearStoredStockData = (year: number = 2025): void => {
   if (!isLocalStorageAvailable()) {
     return;
   }
 
   try {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(STORAGE_TIMESTAMP_KEY);
+    localStorage.removeItem(getStorageKey(year));
+    localStorage.removeItem(getStorageTimestampKey(year));
   } catch (error) {
     console.error("Error clearing stock data from localStorage:", error);
   }
@@ -160,15 +164,16 @@ export const clearStoredStockData = (): void => {
 
 /**
  * Gets the timestamp of when data was last saved
+ * @param year Year for which to get timestamp
  * @returns Timestamp in milliseconds or null
  */
-export const getStoredDataTimestamp = (): number | null => {
+export const getStoredDataTimestamp = (year: number = 2025): number | null => {
   if (!isLocalStorageAvailable()) {
     return null;
   }
 
   try {
-    const timestamp = localStorage.getItem(STORAGE_TIMESTAMP_KEY);
+    const timestamp = localStorage.getItem(getStorageTimestampKey(year));
     return timestamp ? parseInt(timestamp, 10) : null;
   } catch (error) {
     console.error("Error getting stored data timestamp:", error);

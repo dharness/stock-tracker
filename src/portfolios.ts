@@ -3,23 +3,25 @@ import { fetchMultipleStockData } from "./stockDataService";
 // Portfolio groupings for different people with dollar amounts invested
 // Each person has invested $100,000 total across their stocks
 export const PORTFOLIOS = {
-  Ryan: {
-    AAPL: 30000, // $30,000
-    GOOGL: 40000, // $40,000
-    MSFT: 30000, // $30,000
-    // Total: $100,000
+  Naila: {
+    CRDO: 35000,
+    NBIS: 25000,
+    VKTX: 20000,
+    ASTS: 20000,
   },
-  Brian: {
-    AMZN: 50000, // $50,000
-    TSLA: 50000, // $50,000
-    // Total: $100,000
+  Colby: {
+    ONDS: 25000,
+    TSM: 25000,
+    POET: 25000,
+    NBIS: 25000,
   },
-  Katie: {
-    AAPL: 33333, // $33,333
-    MSFT: 33333, // $33,333
-    TSLA: 33334, // $33,334
-    // Total: $100,000
+  Dylan: {
+    ALAB: 25000,
+    AVGO: 25000,
+    APP: 25000,
+    RCAT: 25000,
   },
+  Faith: {},
 };
 
 // Get all unique stocks from all portfolios

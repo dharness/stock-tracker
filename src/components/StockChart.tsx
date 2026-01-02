@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -12,12 +12,13 @@ import {
 
 type CombinedPriceData = {
   date: string;
-  [symbol: string]: string | number;
+  [symbol: string]: string | number | null;
 };
 
 interface StockChartProps {
   data: CombinedPriceData[];
   symbols: string[];
+  year: number;
 }
 
 // Color palette for different stocks
@@ -30,6 +31,44 @@ const StockChart: React.FC<StockChartProps> = ({ data, symbols }) => {
     return `${date.getMonth() + 1}/${date.getDate()}`;
   };
 
+  // Format large numbers for display (e.g., 100000 -> "100K")
+  const formatCurrency = (value: number): string => {
+    if (value >= 1000000) {
+      return `$${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+      return `$${(value / 1000).toFixed(0)}K`;
+    }
+    return `$${value.toFixed(0)}`;
+  };
+
+  // Calculate nice round numbers for Y-axis domain with even increments
+  const getNiceDomain = (min: number, max: number): [number, number] => {
+    const range = max - min;
+    if (range === 0) return [min - 10, max + 10];
+
+    // Calculate appropriate step size
+    const magnitude = Math.pow(10, Math.floor(Math.log10(range)));
+    let step = magnitude;
+
+    // Choose a nice step (1, 2, 5, 10, 20, 50, 100, etc. times the magnitude)
+    const normalizedRange = range / magnitude;
+    if (normalizedRange <= 1.5) {
+      step = magnitude * 0.5;
+    } else if (normalizedRange <= 3) {
+      step = magnitude;
+    } else if (normalizedRange <= 7) {
+      step = magnitude * 2;
+    } else {
+      step = magnitude * 5;
+    }
+
+    // Round min down and max up to nice numbers
+    const niceMin = Math.floor(min / step) * step;
+    const niceMax = Math.ceil(max / step) * step;
+
+    return [niceMin, niceMax];
+  };
+
   // Calculate Y-axis domain based on all stock prices
   const getYAxisDomain = () => {
     let min = Infinity;
@@ -38,7 +77,12 @@ const StockChart: React.FC<StockChartProps> = ({ data, symbols }) => {
     data.forEach((point) => {
       symbols.forEach((symbol) => {
         const price = point[symbol];
-        if (typeof price === "number" && price > 0) {
+        if (
+          price !== null &&
+          price !== undefined &&
+          typeof price === "number" &&
+          price > 0
+        ) {
           min = Math.min(min, price);
           max = Math.max(max, price);
         }
@@ -51,41 +95,70 @@ const StockChart: React.FC<StockChartProps> = ({ data, symbols }) => {
       return [0, 100];
     }
 
-    const padding = (max - min) * 0.1; // 10% padding
-    return [min - padding, max + padding];
+    // Add 5% padding and round to nice numbers
+    const padding = (max - min) * 0.05;
+    return getNiceDomain(min - padding, max + padding);
   };
 
   const [yMin, yMax] = getYAxisDomain();
-  
-  // Debug logging
-  console.log("StockChart received data:", data);
-  console.log("StockChart received symbols:", symbols);
-  console.log("Y-axis domain:", [yMin, yMax]);
+
+  // Detect mobile screen size with responsive hook
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Adjust margins and height for mobile
+  const chartMargin = isMobile
+    ? { top: 10, right: 5, left: 0, bottom: 10 }
+    : { top: 20, right: 30, left: 20, bottom: 20 };
+  const chartHeight = isMobile ? 300 : 400;
 
   return (
     <div className="stock-chart-container">
-      <ResponsiveContainer width="100%" height={400}>
-        <LineChart
-          data={data}
-          margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-        >
+      <ResponsiveContainer width="100%" height={chartHeight}>
+        <LineChart data={data} margin={chartMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
           <XAxis
             dataKey="date"
             tickFormatter={formatDate}
             stroke="#666"
-            style={{ fontSize: "12px" }}
+            style={{ fontSize: isMobile ? "10px" : "12px" }}
+            interval={isMobile ? "preserveStartEnd" : undefined}
+            angle={isMobile ? -45 : 0}
+            textAnchor={isMobile ? "end" : "middle"}
+            height={isMobile ? 60 : undefined}
           />
           <YAxis
             stroke="#666"
-            style={{ fontSize: "12px" }}
+            style={{ fontSize: isMobile ? "10px" : "12px" }}
             domain={[yMin, yMax]}
+            tickFormatter={formatCurrency}
+            width={isMobile ? 50 : undefined}
           />
           <Tooltip
             formatter={(
               value: number | undefined,
               name: string | undefined
-            ) => [`$${value?.toFixed(2) ?? ""}`, name ?? ""]}
+            ) => {
+              if (value === null || value === undefined) {
+                return ["-", name ?? ""];
+              }
+              return [
+                `$${value.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`,
+                name ?? "",
+              ];
+            }}
             labelFormatter={(label) => `Date: ${label}`}
             contentStyle={{
               backgroundColor: "#fff",

@@ -31,23 +31,20 @@ interface MassiveApiResponse {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Fetches historical stock data for the last 1 year from Massive API
+ * Fetches historical stock data for a calendar year (Jan 1 - Dec 31) from Massive API
  * @param symbol Stock ticker symbol (e.g., "AAPL")
+ * @param year Year to fetch data for (default: 2025)
  * @param retries Number of retry attempts for rate limit errors (default: 3)
  * @returns Array of price data points with date and price
  */
 export const fetchStockData = async (
   symbol: string,
+  year: number = 2025,
   retries: number = 3
 ): Promise<PriceData[]> => {
-  // Calculate date range for the last 1 year
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setFullYear(startDate.getFullYear() - 1);
-
-  // Format dates as YYYY-MM-DD
-  const fromDate = startDate.toISOString().split("T")[0];
-  const toDate = endDate.toISOString().split("T")[0];
+  // Fetch data for full calendar year: January 1 to December 31
+  const fromDate = `${year}-01-01`;
+  const toDate = `${year}-12-31`;
 
   // Construct API URL
   // Endpoint: /v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from}/{to}
@@ -176,9 +173,11 @@ export const fetchMultipleStockData = async (
 
 /**
  * Fetches stock data progressively, calling onProgress for each stock as it's loaded
+ * Starts with a lower delay and increases if rate limited
  * @param symbols Array of stock ticker symbols
  * @param onProgress Callback called when each stock is loaded (symbol, data, currentIndex, total)
- * @param delayMs Delay in milliseconds between requests (default: 12000ms = 12 seconds for 5 req/min limit)
+ * @param initialDelayMs Initial delay in milliseconds (default: 2000ms = 2 seconds)
+ * @param rateLimitedDelayMs Delay to use after rate limiting (default: 12000ms = 12 seconds)
  */
 export const fetchMultipleStockDataProgressive = async (
   symbols: string[],
@@ -188,24 +187,41 @@ export const fetchMultipleStockDataProgressive = async (
     currentIndex: number,
     total: number
   ) => void,
-  delayMs: number = 12000
+  year: number = 2025,
+  initialDelayMs: number = 2000,
+  rateLimitedDelayMs: number = 12000
 ): Promise<void> => {
-  // Fetch stocks sequentially with delays to avoid rate limiting
+  let currentDelay = initialDelayMs;
+  let hasBeenRateLimited = false;
+
+  // Fetch stocks sequentially with adaptive delays
   for (let i = 0; i < symbols.length; i++) {
     const symbol = symbols[i];
     try {
-      const data = await fetchStockData(symbol);
+      const data = await fetchStockData(symbol, year);
       if (data.length > 0) {
         onProgress(symbol, data, i + 1, symbols.length);
       }
     } catch (error) {
+      // Check if error is due to rate limiting
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("429") || errorMessage.includes("rate limit")) {
+        if (!hasBeenRateLimited) {
+          console.log(
+            `Rate limited detected. Increasing delay from ${currentDelay}ms to ${rateLimitedDelayMs}ms`
+          );
+          hasBeenRateLimited = true;
+          currentDelay = rateLimitedDelayMs;
+        }
+      }
       console.error(`Failed to fetch data for ${symbol}:`, error);
       // Continue with next symbol even if one fails
     }
 
     // Add delay between requests (except after the last one)
     if (i < symbols.length - 1) {
-      await delay(delayMs);
+      await delay(currentDelay);
     }
   }
 };
