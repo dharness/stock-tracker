@@ -35,24 +35,26 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
   const calculatePortfolioData = () => {
     const people = Object.keys(PORTFOLIOS);
 
-    // First, find the initial prices (first date) to calculate shares
-    const initialPrices: { [symbol: string]: number } = {};
-    if (data.length > 0) {
-      const firstPoint = data[0];
-      // Get all unique symbols from all portfolios
-      const allSymbols = new Set<string>();
-      people.forEach((person) => {
-        const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
-        Object.keys(portfolio).forEach((symbol) => allSymbols.add(symbol));
-      });
+    // Get all unique symbols from all portfolios
+    const allSymbols = new Set<string>();
+    people.forEach((person) => {
+      const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+      Object.keys(portfolio).forEach((symbol) => allSymbols.add(symbol));
+    });
 
-      allSymbols.forEach((symbol) => {
-        const price = firstPoint[symbol];
+    // Find the first valid price for each symbol (not null, not undefined, > 0)
+    // This ensures we get initial prices even if some stocks start later
+    const initialPrices: { [symbol: string]: number } = {};
+    allSymbols.forEach((symbol) => {
+      // Look for the first data point with a valid price for this symbol
+      for (const point of data) {
+        const price = point[symbol];
         if (typeof price === "number" && price > 0) {
           initialPrices[symbol] = price;
+          break; // Found first valid price, move to next symbol
         }
-      });
-    }
+      }
+    });
 
     // Calculate shares for each person based on initial investment
     const shares: { [person: string]: { [symbol: string]: number } } = {};

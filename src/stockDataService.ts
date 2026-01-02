@@ -116,9 +116,17 @@ export const fetchStockData = async (
       }
 
       if (!response.ok) {
-        throw new Error(
-          `Failed to fetch data for ${symbol}: ${response.status} ${response.statusText}`
-        );
+        // Try to get error details from response body
+        let errorDetails = `${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error || errorData.message) {
+            errorDetails += ` - ${errorData.error || errorData.message}`;
+          }
+        } catch {
+          // If response isn't JSON, use status text
+        }
+        throw new Error(`Failed to fetch data for ${symbol}: ${errorDetails}`);
       }
 
       const data: MassiveApiResponse = await response.json();
@@ -130,10 +138,25 @@ export const fetchStockData = async (
         (data.status !== "OK" && data.status !== "DELAYED") ||
         !data.results
       ) {
+        // Check if results array is empty (no data available)
+        if (data.results && data.results.length === 0) {
+          console.warn(
+            `No data available for ${symbol} in ${year} - symbol may not exist or have no trading data`
+          );
+          return []; // Return empty array instead of throwing
+        }
         console.error(`API error for ${symbol}:`, data);
         throw new Error(
-          `API returned error status for ${symbol}: ${data.status}`
+          `API returned error status for ${symbol}: ${data.status}${
+            data.request_id ? ` (request_id: ${data.request_id})` : ""
+          }`
         );
+      }
+
+      // Check if results array is empty
+      if (data.results.length === 0) {
+        console.warn(`No data points returned for ${symbol} in ${year}`);
+        return [];
       }
 
       // Convert Massive API response to our PriceData format
@@ -178,12 +201,12 @@ export const fetchStockData = async (
 /**
  * Fetches stock data for multiple symbols sequentially with delays to avoid rate limits
  * @param symbols Array of stock ticker symbols
- * @param delayMs Delay in milliseconds between requests (default: 12000ms = 12 seconds for 5 req/min limit)
+ * @param delayMs Delay in milliseconds between requests (default: 13000ms = 13 seconds for 5 req/min limit)
  * @returns Map of symbol to price data array
  */
 export const fetchMultipleStockData = async (
   symbols: string[],
-  delayMs: number = 12000
+  delayMs: number = 13000 // 13 seconds = ~4.6 requests/min (under 5/min limit)
 ): Promise<Map<string, PriceData[]>> => {
   const dataMap = new Map<string, PriceData[]>();
 
@@ -217,11 +240,11 @@ export const fetchMultipleStockData = async (
 
 /**
  * Fetches stock data progressively, calling onProgress for each stock as it's loaded
- * Starts with a lower delay and increases if rate limited
+ * Starts with a safe delay to avoid rate limiting
  * @param symbols Array of stock ticker symbols
  * @param onProgress Callback called when each stock is loaded (symbol, data, currentIndex, total)
- * @param initialDelayMs Initial delay in milliseconds (default: 2000ms = 2 seconds)
- * @param rateLimitedDelayMs Delay to use after rate limiting (default: 12000ms = 12 seconds)
+ * @param initialDelayMs Initial delay in milliseconds (default: 13000ms = 13 seconds for 5 req/min limit)
+ * @param rateLimitedDelayMs Delay to use after rate limiting (default: 15000ms = 15 seconds)
  */
 export const fetchMultipleStockDataProgressive = async (
   symbols: string[],
@@ -232,8 +255,8 @@ export const fetchMultipleStockDataProgressive = async (
     total: number
   ) => void,
   year: number = 2025,
-  initialDelayMs: number = 2000,
-  rateLimitedDelayMs: number = 12000
+  initialDelayMs: number = 13000, // 13 seconds = ~4.6 requests/min (under 5/min limit)
+  rateLimitedDelayMs: number = 15000 // 15 seconds if rate limited (extra safety)
 ): Promise<void> => {
   let currentDelay = initialDelayMs;
   let hasBeenRateLimited = false;
@@ -260,6 +283,8 @@ export const fetchMultipleStockDataProgressive = async (
         }
       }
       console.error(`Failed to fetch data for ${symbol}:`, error);
+      // Call onProgress with empty data so UI knows this symbol failed
+      onProgress(symbol, [], i + 1, symbols.length);
       // Continue with next symbol even if one fails
     }
 

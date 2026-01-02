@@ -186,7 +186,7 @@ function App() {
           setCombinedData(combined);
         },
         year
-        // Starts with 2 second delay, increases to 12 seconds if rate limited
+        // Starts with 13 second delay (5 req/min limit), increases to 15 seconds if rate limited
       );
 
       // Save to localStorage after all stocks are loaded
