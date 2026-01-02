@@ -253,28 +253,25 @@ function App() {
           </div>
         </div>
         {loading && progress && (
-          <div style={{ marginTop: "20px", color: "#000000" }}>
-            <p style={{ marginBottom: "10px", fontWeight: "600" }}>
-              Loading stocks... ({progress.completed}/{progress.total})
-            </p>
-            {progress.current && (
-              <p>
-                Currently loading: <strong>{progress.current}</strong>
-              </p>
-            )}
-            {loadedStocks.length > 0 && (
-              <div style={{ marginTop: "10px" }}>
-                <p
-                  style={{
-                    fontSize: "14px",
-                    opacity: 0.9,
-                    marginBottom: "5px",
-                  }}
-                >
-                  Loaded: {loadedStocks.join(", ")}
-                </p>
-              </div>
-            )}
+          <div className="loading-progress-container">
+            <div className="loading-progress-header">
+              <span className="loading-progress-text">
+                {progress.current
+                  ? `Loading ${progress.current}...`
+                  : "Loading stocks..."}
+              </span>
+              <span className="loading-progress-count">
+                {progress.completed}/{progress.total}
+              </span>
+            </div>
+            <div className="loading-progress-bar">
+              <div
+                className="loading-progress-fill"
+                style={{
+                  width: `${(progress.completed / progress.total) * 100}%`,
+                }}
+              />
+            </div>
           </div>
         )}
         {error && (

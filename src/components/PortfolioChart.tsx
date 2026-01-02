@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { PORTFOLIOS } from "../portfolios";
+import { PORTFOLIOS } from "../portfoliosData";
 
 type CombinedPriceData = {
   date: string;
@@ -34,7 +34,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
   // Calculate portfolio values for each person
   const calculatePortfolioData = () => {
     const people = Object.keys(PORTFOLIOS);
-    
+
     // First, find the initial prices (first date) to calculate shares
     const initialPrices: { [symbol: string]: number } = {};
     if (data.length > 0) {
@@ -45,7 +45,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
         const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
         Object.keys(portfolio).forEach((symbol) => allSymbols.add(symbol));
       });
-      
+
       allSymbols.forEach((symbol) => {
         const price = firstPoint[symbol];
         if (typeof price === "number" && price > 0) {
@@ -71,7 +71,10 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
 
     // Calculate portfolio value for each date
     return data.map((point) => {
-      const portfolioPoint: { date: string; [person: string]: string | number } = {
+      const portfolioPoint: {
+        date: string;
+        [person: string]: string | number;
+      } = {
         date: point.date,
       };
 
@@ -83,7 +86,13 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
         Object.keys(portfolio).forEach((symbol) => {
           const currentPrice = point[symbol];
           const numShares = shares[person][symbol];
-          if (currentPrice !== null && currentPrice !== undefined && typeof currentPrice === "number" && currentPrice > 0 && numShares > 0) {
+          if (
+            currentPrice !== null &&
+            currentPrice !== undefined &&
+            typeof currentPrice === "number" &&
+            currentPrice > 0 &&
+            numShares > 0
+          ) {
             totalValue += numShares * currentPrice;
           }
         });
@@ -112,11 +121,11 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
   const getNiceDomain = (min: number, max: number): [number, number] => {
     const range = max - min;
     if (range === 0) return [min - 10000, max + 10000];
-    
+
     // Calculate appropriate step size
     const magnitude = Math.pow(10, Math.floor(Math.log10(range)));
     let step = magnitude;
-    
+
     // Choose a nice step (1, 2, 5, 10, 20, 50, 100, etc. times the magnitude)
     const normalizedRange = range / magnitude;
     if (normalizedRange <= 1.5) {
@@ -128,11 +137,11 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
     } else {
       step = magnitude * 5;
     }
-    
+
     // Round min down and max up to nice numbers
     const niceMin = Math.floor(min / step) * step;
     const niceMax = Math.ceil(max / step) * step;
-    
+
     return [niceMin, niceMax];
   };
 
@@ -144,7 +153,12 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
     portfolioData.forEach((point) => {
       people.forEach((person) => {
         const value = point[person];
-        if (value !== null && value !== undefined && typeof value === "number" && value > 0) {
+        if (
+          value !== null &&
+          value !== undefined &&
+          typeof value === "number" &&
+          value > 0
+        ) {
           min = Math.min(min, value);
           max = Math.max(max, value);
         }
@@ -166,17 +180,17 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
 
   // Detect mobile screen size with responsive hook
   const [isMobile, setIsMobile] = useState(false);
-  
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
     };
-    
+
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-  
+
   // Adjust margins and height for mobile
   const chartMargin = isMobile
     ? { top: 10, right: 5, left: 0, bottom: 10 }
@@ -186,10 +200,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
   return (
     <div className="stock-chart-container">
       <ResponsiveContainer width="100%" height={chartHeight}>
-        <LineChart
-          data={portfolioData}
-          margin={chartMargin}
-        >
+        <LineChart data={portfolioData} margin={chartMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
           <XAxis
             dataKey="date"
@@ -217,7 +228,10 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
                 return ["-", name ?? ""];
               }
               return [
-                `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                `$${value.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`,
                 name ?? "",
               ];
             }}
@@ -248,4 +262,3 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
 };
 
 export default PortfolioChart;
-

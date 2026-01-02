@@ -1,5 +1,5 @@
 import React from "react";
-import { PORTFOLIOS } from "../portfolios";
+import { PORTFOLIOS } from "../portfoliosData";
 
 type CombinedPriceData = {
   date: string;
