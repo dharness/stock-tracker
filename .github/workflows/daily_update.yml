@@ -3,12 +3,14 @@ name: Daily Stock Update
 on:
   schedule:
     # This runs at 00:00 UTC every day
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
   workflow_dispatch: # Allows you to run it manually for testing
 
 jobs:
   update-stocks:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to commit and push changes
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -16,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Fetch Stock Data
         run: node update_stocks.js
@@ -25,6 +27,5 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Automated daily stock update"
-          file_pattern: 'public/data/*.json'
+          file_pattern: "public/data/*.json"
           skip_dirty_check: true
-
