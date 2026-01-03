@@ -1,46 +1,125 @@
-# Getting Started with Create React App
+# Stock Tracker
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React-based stock portfolio tracker that visualizes stock performance and portfolio values over time. The app displays data for multiple portfolios and individual stocks with interactive charts and year-to-date growth tables.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- 📊 **Portfolio Charts**: Visualize total portfolio values for each person over time
+- 📈 **Stock Charts**: View individual stock performance on a combined chart
+- 📋 **YTD Growth Tables**: See month-to-month year-to-date growth for portfolios and stocks
+- 📅 **Year Selection**: Switch between different years (2025, 2026)
+- 💾 **Local Storage**: Data is cached locally for faster loading
+- 🔄 **Auto-Update**: GitHub Actions automatically fetches fresh stock data daily
 
-### `npm start`
+## Setup
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+1. **Install dependencies**:
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+   ```bash
+   npm install
+   ```
 
-### `npm test`
+2. **Run the development server**:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+   ```bash
+   npm start
+   ```
 
-### `npm run build`
+3. **Build for production**:
+   ```bash
+   npm run build
+   ```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Deployment to GitHub Pages
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+This app is configured to deploy to GitHub Pages. Follow these steps:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Initial Setup (One-time)
 
-### `npm run eject`
+1. **Install the gh-pages package** (if not already installed):
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+   ```bash
+   npm install --save-dev gh-pages
+   ```
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+2. **Update the homepage URL** in `package.json`:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+   - If your repository is `username/stock-charts`, the homepage should be:
+     ```json
+     "homepage": "https://username.github.io/stock-charts"
+     ```
+   - The homepage field is already configured in this repo.
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+3. **Enable GitHub Pages** in your repository settings:
+   - Go to Settings → Pages
+   - Under "Source", select "Deploy from a branch"
+   - Choose the `gh-pages` branch and `/ (root)` folder
+   - Click Save
 
-## Learn More
+### Building and Deploying
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+**To deploy to GitHub Pages, run**:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```bash
+npm run deploy
+```
+
+This command will:
+
+1. Build the production-ready app (`npm run build`)
+2. Deploy the `build` folder to the `gh-pages` branch
+3. Make your site available at `https://username.github.io/stock-charts`
+
+**Note**: The `npm run deploy` command automatically runs `npm run build` first (via the `predeploy` script), so you don't need to build separately.
+
+### Manual Build (if needed)
+
+If you want to build without deploying:
+
+```bash
+npm run build
+```
+
+The built files will be in the `build/` directory, ready to be served by any static hosting service.
+
+## Data Updates
+
+Stock data is automatically updated daily via GitHub Actions:
+
+- The workflow runs at 00:00 UTC every day
+- It fetches data using the Stooq API
+- Updates are committed to the `main` branch
+- The app loads data from `public/data/stocks.json`
+
+## Project Structure
+
+```
+stock-tracker/
+├── src/
+│   ├── components/       # React components (charts, tables)
+│   ├── data/            # Portfolio definitions
+│   ├── services/        # Data fetching and storage services
+│   └── App.tsx          # Main application component
+├── scripts/             # Data update scripts
+│   ├── update_stocks_stooq.js
+│   └── update_stocks.js
+├── public/
+│   └── data/
+│       └── stocks.json  # Stock data (auto-updated)
+└── .github/
+    └── workflows/
+        └── daily_update.yml  # GitHub Actions workflow
+```
+
+## Technologies
+
+- **React** - UI framework
+- **TypeScript** - Type safety
+- **Recharts** - Chart visualization
+- **Stooq API** - Stock data source
+- **GitHub Actions** - Automated data updates
+- **GitHub Pages** - Hosting
+
+## License
+
+Private project
