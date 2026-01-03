@@ -1,5 +1,5 @@
 import { PORTFOLIOS } from "./portfoliosData";
-import { fetchMultipleStockData } from "./stockDataService";
+import { fetchMultipleStockData } from "../services/stockDataServiceStatic";
 
 // Get all unique stocks from all portfolios
 export const getAllStocks = () => {

@@ -1,5 +1,5 @@
 import React from "react";
-import { PORTFOLIOS } from "../portfoliosData";
+import { PORTFOLIOS } from "../data/portfoliosData";
 
 type CombinedPriceData = {
   date: string;
@@ -15,7 +15,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
   // Calculate portfolio values for each person (same logic as chart)
   const calculatePortfolioData = () => {
     const people = Object.keys(PORTFOLIOS);
-    
+
     // Get all unique symbols from all portfolios
     const allSymbols = new Set<string>();
     people.forEach((person) => {
@@ -65,7 +65,11 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
         Object.keys(portfolio).forEach((symbol) => {
           const currentPrice = point[symbol];
           const numShares = shares[person][symbol];
-          if (typeof currentPrice === "number" && currentPrice > 0 && numShares > 0) {
+          if (
+            typeof currentPrice === "number" &&
+            currentPrice > 0 &&
+            numShares > 0
+          ) {
             totalValue += numShares * currentPrice;
           }
         });
@@ -91,12 +95,12 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
       pointDate.getDate() === jan1Date.getDate()
     );
   });
-  
+
   // If Jan 1 not found, use the first available data point as baseline
   if (!jan1DataPoint && portfolioData.length > 0) {
     jan1DataPoint = portfolioData[0];
   }
-  
+
   if (jan1DataPoint) {
     people.forEach((person) => {
       jan1Baseline[person] = (jan1DataPoint![person] as number) || 0;
@@ -108,14 +112,19 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
     monthLabel: string;
     [key: string]: string | number;
   };
-  
+
   const monthlyData: { [month: string]: MonthlyDataPoint } = {};
-  
+
   portfolioData.forEach((point) => {
     const date = new Date(point.date);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-    const monthLabel = date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-    
+    const monthKey = `${date.getFullYear()}-${String(
+      date.getMonth() + 1
+    ).padStart(2, "0")}`;
+    const monthLabel = date.toLocaleDateString("en-US", {
+      month: "short",
+      year: "numeric",
+    });
+
     if (!monthlyData[monthKey]) {
       const initialData: MonthlyDataPoint = { monthLabel };
       people.forEach((person) => {
@@ -123,14 +132,16 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
       });
       monthlyData[monthKey] = initialData;
     }
-    
+
     // Use the last value of the month
     people.forEach((person) => {
       monthlyData[monthKey][person] = point[person] as number;
     });
   });
 
-  const monthlyRows: (MonthlyDataPoint & { key: string })[] = Object.keys(monthlyData)
+  const monthlyRows: (MonthlyDataPoint & { key: string })[] = Object.keys(
+    monthlyData
+  )
     .sort()
     .map((key) => ({ key, ...monthlyData[key] }));
 
@@ -140,21 +151,39 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
     const isPositive = change > 0;
     const isNegative = change < 0;
     const isZero = change === 0;
-    
+
     const color = isPositive ? "#10b981" : isNegative ? "#ef4444" : "#6b7280";
     const arrow = isPositive ? "↑" : isNegative ? "↓" : "";
-    
+
     return { change, color, arrow };
   };
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+      <table
+        style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}
+      >
         <thead>
-          <tr style={{ backgroundColor: "#f5f5f5", borderBottom: "2px solid #ddd" }}>
-            <th style={{ padding: "12px", textAlign: "left", fontWeight: "600" }}>Month</th>
+          <tr
+            style={{
+              backgroundColor: "#f5f5f5",
+              borderBottom: "2px solid #ddd",
+            }}
+          >
+            <th
+              style={{ padding: "12px", textAlign: "left", fontWeight: "600" }}
+            >
+              Month
+            </th>
             {people.map((person) => (
-              <th key={person} style={{ padding: "12px", textAlign: "right", fontWeight: "600" }}>
+              <th
+                key={person}
+                style={{
+                  padding: "12px",
+                  textAlign: "right",
+                  fontWeight: "600",
+                }}
+              >
                 {person}
               </th>
             ))}
@@ -169,32 +198,52 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
                 backgroundColor: index % 2 === 0 ? "#fff" : "#fafafa",
               }}
             >
-              <td style={{ padding: "12px", fontWeight: "500" }}>{row.monthLabel}</td>
+              <td style={{ padding: "12px", fontWeight: "500" }}>
+                {row.monthLabel}
+              </td>
               {people.map((person) => {
                 const currentValue = row[person];
                 const baseline = jan1Baseline[person];
-                
+
                 // Show "-" if no data for this month
                 if (currentValue === null || currentValue === undefined) {
                   return (
-                    <td key={person} style={{ padding: "12px", textAlign: "right", color: "#6b7280" }}>
+                    <td
+                      key={person}
+                      style={{
+                        padding: "12px",
+                        textAlign: "right",
+                        color: "#6b7280",
+                      }}
+                    >
                       -
                     </td>
                   );
                 }
-                
+
                 // Only calculate change if we have a valid baseline
                 if (baseline === undefined || baseline === 0) {
                   return (
-                    <td key={person} style={{ padding: "12px", textAlign: "right", color: "#6b7280" }}>
+                    <td
+                      key={person}
+                      style={{
+                        padding: "12px",
+                        textAlign: "right",
+                        color: "#6b7280",
+                      }}
+                    >
                       -
                     </td>
                   );
                 }
-                
-                const value = typeof currentValue === "number" ? currentValue : 0;
-                const { change, color, arrow } = formatYTDGrowth(value, baseline);
-                
+
+                const value =
+                  typeof currentValue === "number" ? currentValue : 0;
+                const { change, color, arrow } = formatYTDGrowth(
+                  value,
+                  baseline
+                );
+
                 return (
                   <td
                     key={person}
@@ -219,4 +268,3 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
 };
 
 export default PortfolioTable;
-

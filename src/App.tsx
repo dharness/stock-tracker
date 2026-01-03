@@ -4,16 +4,16 @@ import PortfolioChart from "./components/PortfolioChart";
 import PortfolioTable from "./components/PortfolioTable";
 import StockChart from "./components/StockChart";
 import StockTable from "./components/StockTable";
-import { STOCKS } from "./portfolios";
+import { STOCKS } from "./data/portfolios";
 import {
   fetchMultipleStockDataProgressive,
   PriceData,
-} from "./stockDataService";
+} from "./services/stockDataServiceStatic";
 import {
   loadStockDataFromStorage,
   saveStockDataToStorage,
   storedDataToMap,
-} from "./storageService";
+} from "./services/storageService";
 
 type CombinedDataPoint = {
   date: string;

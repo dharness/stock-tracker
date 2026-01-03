@@ -1,10 +1,11 @@
 // Service for managing stock data in localStorage
 // Works on both desktop and mobile browsers (iOS Safari, Chrome Mobile, etc.)
 
-import { PriceData } from "./stockDataService";
+import { PriceData } from "./stockDataServiceStatic";
 
 const getStorageKey = (year: number) => `stock-tracker-data-${year}`;
-const getStorageTimestampKey = (year: number) => `stock-tracker-timestamp-${year}`;
+const getStorageTimestampKey = (year: number) =>
+  `stock-tracker-timestamp-${year}`;
 
 /**
  * Checks if localStorage is available and accessible
@@ -62,18 +63,25 @@ export const saveStockDataToStorage = (
     };
 
     const dataString = JSON.stringify(storedData);
-    
+
     // Check if data size is reasonable (localStorage typically has 5-10MB limit)
     if (dataString.length > 5 * 1024 * 1024) {
-      console.warn("Data size exceeds 5MB. May not save on some mobile devices.");
+      console.warn(
+        "Data size exceeds 5MB. May not save on some mobile devices."
+      );
     }
 
     localStorage.setItem(getStorageKey(year), dataString);
     localStorage.setItem(getStorageTimestampKey(year), Date.now().toString());
   } catch (error) {
     // Handle quota exceeded errors (common on mobile)
-    if (error instanceof DOMException && (error.code === 22 || error.name === "QuotaExceededError")) {
-      console.warn("localStorage quota exceeded. Clearing old data and retrying...");
+    if (
+      error instanceof DOMException &&
+      (error.code === 22 || error.name === "QuotaExceededError")
+    ) {
+      console.warn(
+        "localStorage quota exceeded. Clearing old data and retrying..."
+      );
       try {
         // Try clearing old data and saving again
         localStorage.removeItem(getStorageKey(year));
@@ -84,9 +92,15 @@ export const saveStockDataToStorage = (
           timestamp: Date.now(),
         };
         localStorage.setItem(getStorageKey(year), JSON.stringify(retryData));
-        localStorage.setItem(getStorageTimestampKey(year), Date.now().toString());
+        localStorage.setItem(
+          getStorageTimestampKey(year),
+          Date.now().toString()
+        );
       } catch (retryError) {
-        console.error("Error saving stock data to localStorage after retry:", retryError);
+        console.error(
+          "Error saving stock data to localStorage after retry:",
+          retryError
+        );
       }
     } else {
       console.error("Error saving stock data to localStorage:", error);
@@ -99,7 +113,9 @@ export const saveStockDataToStorage = (
  * @param year Year for which to load data
  * @returns Stored data or null if not found/invalid
  */
-export const loadStockDataFromStorage = (year: number = 2025): StoredData | null => {
+export const loadStockDataFromStorage = (
+  year: number = 2025
+): StoredData | null => {
   if (!isLocalStorageAvailable()) {
     console.warn("localStorage is not available. Cannot load cached data.");
     return null;
@@ -180,4 +196,3 @@ export const getStoredDataTimestamp = (year: number = 2025): number | null => {
     return null;
   }
 };
-

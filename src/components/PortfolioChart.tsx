@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { PORTFOLIOS } from "../portfoliosData";
+import { PORTFOLIOS } from "../data/portfoliosData";
 
 type CombinedPriceData = {
   date: string;
