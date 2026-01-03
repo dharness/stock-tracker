@@ -44,9 +44,9 @@ This app is configured to deploy to GitHub Pages. Follow these steps:
 
 2. **Update the homepage URL** in `package.json`:
 
-   - If your repository is `username/stock-charts`, the homepage should be:
+   - If your repository is `username/stock-tracker`, the homepage should be:
      ```json
-     "homepage": "https://username.github.io/stock-charts"
+     "homepage": "https://username.github.io/stock-tracker"
      ```
    - The homepage field is already configured in this repo.
 
@@ -68,7 +68,7 @@ This command will:
 
 1. Build the production-ready app (`npm run build`)
 2. Deploy the `build` folder to the `gh-pages` branch
-3. Make your site available at `https://username.github.io/stock-charts`
+3. Make your site available at `https://username.github.io/stock-tracker`
 
 **Note**: The `npm run deploy` command automatically runs `npm run build` first (via the `predeploy` script), so you don't need to build separately.
 

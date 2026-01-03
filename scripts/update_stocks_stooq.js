@@ -12,9 +12,7 @@ const { parse } = require("csv-parse/sync");
 
 // API Configuration
 const STOOQ_BASE_URL = "https://stooq.com/q/d/l/";
-
-// Rate limiting: 2 second delay between requests
-const DELAY_BETWEEN_REQUESTS_MS = 2000; // 2 seconds delay between requests
+const DELAY_BETWEEN_REQUESTS_MS = 5000;
 
 // Output configuration
 const OUTPUT_FILE = "stocks.json";
