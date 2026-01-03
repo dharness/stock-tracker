@@ -6,6 +6,7 @@ import PortfolioTable from "./components/PortfolioTable";
 import StockChart from "./components/StockChart";
 import StockTable from "./components/StockTable";
 import { STOCKS } from "./data/portfolios";
+import { PORTFOLIOS } from "./data/portfoliosData";
 import {
   fetchMultipleStockData,
   PriceData,
@@ -25,6 +26,9 @@ function App() {
   >("chart");
   const [stockView, setStockView] = useState<"chart" | "table">("chart");
   const [year, setYear] = useState<2025 | 2026>(2025);
+  const [selectedPortfolio, setSelectedPortfolio] = useState<string | null>(
+    null
+  );
 
   // Helper to generate empty data points for all expected dates
   const generateEmptyDataPoints = (
@@ -215,52 +219,91 @@ function App() {
             </>
           )}
           <div>
-            <h2 className="section-header">All Stocks</h2>
-            {(combinedData.length > 0 || loadedStocks.length > 0) && (
-              <div className="tabbed-card">
-                <div className="tabs-container">
-                  <button
-                    onClick={() => setStockView("chart")}
-                    className={`tab-button ${
-                      stockView === "chart" ? "active" : ""
-                    }`}
-                  >
-                    Timeseries
-                  </button>
-                  <button
-                    onClick={() => setStockView("table")}
-                    className={`tab-button ${
-                      stockView === "table" ? "active" : ""
-                    }`}
-                  >
-                    Table (YTD Growth)
-                  </button>
-                </div>
-                <div className="tabbed-card-content">
-                  {stockView === "chart" ? (
-                    <StockChart
-                      data={
-                        combinedData.length > 0
-                          ? combinedData
-                          : generateEmptyDataPoints(loadedStocks, year)
-                      }
-                      symbols={loadedStocks}
-                      year={year}
-                    />
-                  ) : (
-                    <StockTable
-                      data={
-                        combinedData.length > 0
-                          ? combinedData
-                          : generateEmptyDataPoints(loadedStocks, year)
-                      }
-                      symbols={loadedStocks}
-                      year={year}
-                    />
-                  )}
-                </div>
+            <div className="section-header-container">
+              <h2 className="section-header">All Stocks</h2>
+              <div className="portfolio-filter">
+                <label
+                  htmlFor="portfolio-filter-select"
+                  className="portfolio-filter-label"
+                >
+                  Filter by portfolio:
+                </label>
+                <select
+                  id="portfolio-filter-select"
+                  className="portfolio-filter-select"
+                  value={selectedPortfolio || ""}
+                  onChange={(e) => setSelectedPortfolio(e.target.value || null)}
+                >
+                  <option value="">All Stocks</option>
+                  {Object.keys(PORTFOLIOS).map((person) => {
+                    const portfolio =
+                      PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+                    const stockCount = Object.keys(portfolio).length;
+                    if (stockCount === 0) return null;
+                    return (
+                      <option key={person} value={person}>
+                        {person} ({stockCount} stocks)
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
-            )}
+            </div>
+            {(combinedData.length > 0 || loadedStocks.length > 0) &&
+              (() => {
+                // Filter stocks based on selected portfolio
+                const filteredStocks = selectedPortfolio
+                  ? Object.keys(
+                      PORTFOLIOS[selectedPortfolio as keyof typeof PORTFOLIOS]
+                    ).filter((symbol) => loadedStocks.includes(symbol))
+                  : loadedStocks;
+
+                return (
+                  <div className="tabbed-card">
+                    <div className="tabs-container">
+                      <button
+                        onClick={() => setStockView("chart")}
+                        className={`tab-button ${
+                          stockView === "chart" ? "active" : ""
+                        }`}
+                      >
+                        Timeseries
+                      </button>
+                      <button
+                        onClick={() => setStockView("table")}
+                        className={`tab-button ${
+                          stockView === "table" ? "active" : ""
+                        }`}
+                      >
+                        Table (YTD Growth)
+                      </button>
+                    </div>
+                    <div className="tabbed-card-content">
+                      {stockView === "chart" ? (
+                        <StockChart
+                          data={
+                            combinedData.length > 0
+                              ? combinedData
+                              : generateEmptyDataPoints(filteredStocks, year)
+                          }
+                          symbols={filteredStocks}
+                          year={year}
+                        />
+                      ) : (
+                        <StockTable
+                          data={
+                            combinedData.length > 0
+                              ? combinedData
+                              : generateEmptyDataPoints(filteredStocks, year)
+                          }
+                          symbols={filteredStocks}
+                          year={year}
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
           </div>
         </div>
       </main>

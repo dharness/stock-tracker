@@ -35,11 +35,16 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
   const calculatePortfolioData = () => {
     const people = Object.keys(PORTFOLIOS);
 
-    // Get all unique symbols from all portfolios
+    // Get all unique symbols from all portfolios (excluding cash_amount)
     const allSymbols = new Set<string>();
     people.forEach((person) => {
       const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
-      Object.keys(portfolio).forEach((symbol) => allSymbols.add(symbol));
+      Object.keys(portfolio).forEach((symbol) => {
+        // Skip special "cash_amount" key - it's handled separately
+        if (symbol !== "cash_amount") {
+          allSymbols.add(symbol);
+        }
+      });
     });
 
     // Find the first valid price for each symbol (not null, not undefined, > 0)
@@ -72,7 +77,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
     });
 
     // Calculate portfolio value for each date
-    return data.map((point) => {
+    return data.map((point, pointIndex) => {
       const portfolioPoint: {
         date: string;
         [person: string]: string | number;
@@ -86,16 +91,51 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
         let totalValue = 0;
 
         Object.keys(portfolio).forEach((symbol) => {
-          const currentPrice = point[symbol];
+          // Handle special "cash_amount" key - always use the amount as-is
+          if (symbol === "cash_amount") {
+            totalValue += portfolio[symbol];
+            return;
+          }
+
           const numShares = shares[person][symbol];
+          if (numShares === 0) {
+            // No shares calculated (no initial price found), skip
+            return;
+          }
+
+          let priceToUse: number | null = null;
+
+          // Rule 1: Check if current date has valid price
+          const currentPrice = point[symbol];
           if (
             currentPrice !== null &&
             currentPrice !== undefined &&
             typeof currentPrice === "number" &&
-            currentPrice > 0 &&
-            numShares > 0
+            currentPrice > 0
           ) {
-            totalValue += numShares * currentPrice;
+            priceToUse = currentPrice;
+          } else {
+            // Rule 2: Look backwards for the most recent valid price
+            for (let i = pointIndex - 1; i >= 0; i--) {
+              const prevPrice = data[i][symbol];
+              if (
+                prevPrice !== null &&
+                prevPrice !== undefined &&
+                typeof prevPrice === "number" &&
+                prevPrice > 0
+              ) {
+                priceToUse = prevPrice;
+                break;
+              }
+            }
+          }
+
+          // Rule 3: If no previous valid date found, use initial investment amount
+          if (priceToUse === null) {
+            const investment = portfolio[symbol];
+            totalValue += investment; // Use investment amount directly
+          } else {
+            totalValue += numShares * priceToUse;
           }
         });
 

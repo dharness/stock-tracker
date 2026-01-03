@@ -11,7 +11,12 @@ const PORTFOLIOS = require("../src/data/portfoliosData.json");
 const getAllStocks = () => {
   const allStocksSet = new Set();
   Object.values(PORTFOLIOS).forEach((portfolio) => {
-    Object.keys(portfolio).forEach((stock) => allStocksSet.add(stock));
+    Object.keys(portfolio).forEach((stock) => {
+      // Skip special "cash_amount" key - it's not a stock ticker
+      if (stock !== "cash_amount") {
+        allStocksSet.add(stock);
+      }
+    });
   });
   return Array.from(allStocksSet).sort();
 };

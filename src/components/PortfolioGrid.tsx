@@ -32,6 +32,12 @@ const PortfolioGrid: React.FC<PortfolioGridProps> = ({ data, year }) => {
     let totalValue = 0;
 
     Object.entries(portfolio).forEach(([symbol, investment]) => {
+      // Handle special "cash_amount" key - always use the amount as-is
+      if (symbol === "cash_amount") {
+        totalValue += investment;
+        return;
+      }
+
       const currentPrice = getLatestPrice(symbol);
       if (currentPrice && currentPrice > 0) {
         // Find initial price to calculate shares
@@ -108,7 +114,7 @@ const PortfolioGrid: React.FC<PortfolioGridProps> = ({ data, year }) => {
       <div className="portfolio-grid">
         {rankedPeople.map(({ person, gain, portfolioValue, totalInvestment, rank }) => {
           const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
-          const stocks = Object.keys(portfolio);
+          const stocks = Object.keys(portfolio).filter((symbol) => symbol !== "cash_amount");
           const gainPercent = totalInvestment > 0 ? (gain / totalInvestment) * 100 : 0;
 
           return (

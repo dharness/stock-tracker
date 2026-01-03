@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const { parse } = require("csv-parse/sync");
+const { fetchStockDataFromMassive } = require("./massiveStockFetcher");
 
 // ============================================================================
 // CONFIGURATION SECTION
@@ -29,7 +30,12 @@ const PORTFOLIOS = require("../src/data/portfoliosData.json");
 const getAllStocks = () => {
   const allStocksSet = new Set();
   Object.values(PORTFOLIOS).forEach((portfolio) => {
-    Object.keys(portfolio).forEach((stock) => allStocksSet.add(stock));
+    Object.keys(portfolio).forEach((stock) => {
+      // Skip special "cash_amount" key - it's not a stock ticker
+      if (stock !== "cash_amount") {
+        allStocksSet.add(stock);
+      }
+    });
   });
   return Array.from(allStocksSet).sort();
 };
@@ -106,7 +112,21 @@ const fetchAllStocks = async () => {
     try {
       console.log(`Fetching ${symbol} (${i + 1}/${STOCKS.length})...`);
 
-      const data = await fetchStockData(symbol);
+      // Try Stooq first
+      let data = await fetchStockData(symbol);
+
+      // If Stooq didn't return data, try Massive API as fallback
+      if (data.length === 0) {
+        console.log(`  No data from Stooq, trying Massive API...`);
+        try {
+          data = await fetchStockDataFromMassive(symbol);
+          if (data.length > 0) {
+            console.log(`  ✓ Got data from Massive API fallback`);
+          }
+        } catch (massiveError) {
+          console.warn(`  Massive API also failed: ${massiveError.message}`);
+        }
+      }
 
       if (data.length > 0) {
         // Store all data under symbol key (not year-specific)
@@ -119,7 +139,7 @@ const fetchAllStocks = async () => {
           `✓ Fetched ${data.length} data points for ${symbol} (${dateRange})`
         );
       } else {
-        console.warn(`⚠ No data found for ${symbol}`);
+        console.warn(`⚠ No data found for ${symbol} from any source`);
       }
 
       // 2 second delay between requests
