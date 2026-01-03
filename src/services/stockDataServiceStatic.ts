@@ -2,7 +2,9 @@
 // This is an alternate version that reads from public/data/stocks.json instead of making API calls
 // Use this for production when the JSON file is available
 
-const STATIC_DATA_URL = "/data/stocks.json";
+// Use process.env.PUBLIC_URL to handle GitHub Pages subdirectory correctly
+// process.env.PUBLIC_URL is set by Create React App based on the "homepage" field in package.json
+const STATIC_DATA_URL = `${process.env.PUBLIC_URL || ''}/data/stocks.json`;
 
 export interface PriceData {
   date: string;
