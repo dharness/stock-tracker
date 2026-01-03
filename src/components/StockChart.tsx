@@ -143,29 +143,31 @@ const StockChart: React.FC<StockChartProps> = ({ data, symbols }) => {
             tickFormatter={formatCurrency}
             width={isMobile ? 50 : undefined}
           />
-          <Tooltip
-            formatter={(
-              value: number | undefined,
-              name: string | undefined
-            ) => {
-              if (value === null || value === undefined) {
-                return ["-", name ?? ""];
-              }
-              return [
-                `$${value.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`,
-                name ?? "",
-              ];
-            }}
-            labelFormatter={(label) => `Date: ${label}`}
-            contentStyle={{
-              backgroundColor: "#fff",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-            }}
-          />
+          {!isMobile && (
+            <Tooltip
+              formatter={(
+                value: number | undefined,
+                name: string | undefined
+              ) => {
+                if (value === null || value === undefined) {
+                  return ["-", name ?? ""];
+                }
+                return [
+                  `$${value.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`,
+                  name ?? "",
+                ];
+              }}
+              labelFormatter={(label) => `Date: ${label}`}
+              contentStyle={{
+                backgroundColor: "#fff",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+              }}
+            />
+          )}
           <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="line" />
           {symbols.map((symbol, index) => (
             <Line
