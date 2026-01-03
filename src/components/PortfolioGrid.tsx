@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { PORTFOLIOS } from "../data/portfoliosData";
 
 interface PortfolioGridProps {
@@ -11,6 +11,17 @@ interface PortfolioGridProps {
 
 const PortfolioGrid: React.FC<PortfolioGridProps> = ({ data, year }) => {
   const people = Object.keys(PORTFOLIOS);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Get the most recent data point for current prices
   const getLatestPrice = (symbol: string): number | null => {
@@ -149,9 +160,15 @@ const PortfolioGrid: React.FC<PortfolioGridProps> = ({ data, year }) => {
               <div className="portfolio-stocks-table">
                 <div className="portfolio-stocks-header">
                   <div className="portfolio-stock-col-symbol">Symbol</div>
-                  <div className="portfolio-stock-col-investment">Investment</div>
-                  <div className="portfolio-stock-col-value">Current Value</div>
-                  <div className="portfolio-stock-col-gain">Gain/Loss</div>
+                  <div className="portfolio-stock-col-investment">
+                    {isMobile ? "Inv" : "Investment"}
+                  </div>
+                  <div className="portfolio-stock-col-value">
+                    {isMobile ? "Value" : "Current Value"}
+                  </div>
+                  <div className="portfolio-stock-col-gain">
+                    {isMobile ? "Gain" : "Gain/Loss"}
+                  </div>
                 </div>
                 <div className="portfolio-stocks-body">
                   {stocks.map((symbol) => {

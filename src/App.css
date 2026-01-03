@@ -482,6 +482,7 @@ body {
 .portfolio-stocks-table {
   width: 100%;
   border-collapse: collapse;
+  overflow-x: auto;
 }
 
 .portfolio-stocks-header {
@@ -495,6 +496,7 @@ body {
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  min-width: 600px;
 }
 
 .portfolio-stocks-body {
@@ -510,6 +512,75 @@ body {
   border-bottom: 1px solid #f3f4f6;
   align-items: center;
   font-size: 0.9rem;
+  min-width: 600px;
+}
+
+/* Mobile styles for portfolio table */
+@media (max-width: 768px) {
+  .portfolio-stocks-table {
+    margin: 0 -12px;
+    padding: 0 12px;
+  }
+
+  .portfolio-stocks-header {
+    grid-template-columns: 50px 0.75fr 0.85fr 1.1fr;
+    gap: 4px;
+    padding: 6px 0;
+    font-size: 0.65rem;
+    letter-spacing: 0.2px;
+    min-width: 480px;
+  }
+
+  .portfolio-stocks-header .portfolio-stock-col-investment {
+    font-size: 0.6rem;
+  }
+
+  .portfolio-stocks-header .portfolio-stock-col-value {
+    font-size: 0.6rem;
+  }
+
+  .portfolio-stocks-header .portfolio-stock-col-gain {
+    font-size: 0.6rem;
+  }
+
+  .portfolio-stock-row {
+    grid-template-columns: 50px 0.75fr 0.85fr 1.1fr;
+    gap: 4px;
+    padding: 6px 0;
+    font-size: 0.7rem;
+    min-width: 480px;
+  }
+
+  .portfolio-stock-col-symbol {
+    font-size: 0.75rem;
+  }
+
+  .portfolio-stock-col-investment {
+    font-size: 0.65rem;
+  }
+
+  .portfolio-stock-col-value {
+    font-size: 0.65rem;
+  }
+
+  .portfolio-stock-col-gain {
+    font-size: 0.6rem;
+  }
+
+  .portfolio-person-card {
+    padding: 10px;
+  }
+
+  .portfolio-person-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .portfolio-person-summary {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 }
 
 .portfolio-stock-row:last-child {
