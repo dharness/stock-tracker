@@ -209,7 +209,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
                 if (currentValue === null || currentValue === undefined) {
                   return (
                     <td
-                      key={person}
+                      key={`${row.key}-${person}`}
                       style={{
                         padding: "12px",
                         textAlign: "right",
@@ -225,7 +225,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
                 if (baseline === undefined || baseline === 0) {
                   return (
                     <td
-                      key={person}
+                      key={`${row.key}-${person}`}
                       style={{
                         padding: "12px",
                         textAlign: "right",
@@ -246,7 +246,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
 
                 return (
                   <td
-                    key={person}
+                    key={`${row.key}-${person}`}
                     style={{
                       padding: "12px",
                       textAlign: "right",

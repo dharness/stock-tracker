@@ -1,19 +1,15 @@
 import React, { useEffect, useState } from "react";
 import "./App.css";
 import PortfolioChart from "./components/PortfolioChart";
+import PortfolioGrid from "./components/PortfolioGrid";
 import PortfolioTable from "./components/PortfolioTable";
 import StockChart from "./components/StockChart";
 import StockTable from "./components/StockTable";
 import { STOCKS } from "./data/portfolios";
 import {
-  fetchMultipleStockDataProgressive,
+  fetchMultipleStockData,
   PriceData,
 } from "./services/stockDataServiceStatic";
-import {
-  loadStockDataFromStorage,
-  saveStockDataToStorage,
-  storedDataToMap,
-} from "./services/storageService";
 
 type CombinedDataPoint = {
   date: string;
@@ -22,19 +18,11 @@ type CombinedDataPoint = {
 
 function App() {
   const [combinedData, setCombinedData] = useState<CombinedDataPoint[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<{
-    current: string;
-    completed: number;
-    total: number;
-  } | null>(null);
   const [loadedStocks, setLoadedStocks] = useState<string[]>([]);
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [portfolioView, setPortfolioView] = useState<"chart" | "table">(
-    "chart"
-  );
+  const [portfolioView, setPortfolioView] = useState<
+    "chart" | "table" | "portfolios"
+  >("chart");
   const [stockView, setStockView] = useState<"chart" | "table">("chart");
   const [year, setYear] = useState<2025 | 2026>(2025);
 
@@ -98,148 +86,51 @@ function App() {
     return combined;
   };
 
-  // Load data from localStorage on mount and when year changes
+  // Load data directly from static JSON file on mount and when year changes
   useEffect(() => {
-    const loadCachedData = () => {
-      const storedData = loadStockDataFromStorage(year);
-      if (storedData) {
-        const stockDataMap = storedDataToMap(storedData.stockData);
+    const loadData = async () => {
+      try {
+        setError(null);
+
+        // Get all data (not filtered by year yet)
+        const stockDataMap = await fetchMultipleStockData(STOCKS);
+
+        // Filter by year
+        const yearStart = `${year}-01-01`;
+        const yearEnd = `${year}-12-31`;
+        const filteredMap = new Map<string, PriceData[]>();
+
+        stockDataMap.forEach((allData, symbol) => {
+          const filtered = allData.filter(
+            (point) => point.date >= yearStart && point.date <= yearEnd
+          );
+          if (filtered.length > 0) {
+            filteredMap.set(symbol, filtered);
+          }
+        });
+
         const combined = combineStockData(
-          stockDataMap,
-          storedData.loadedStocks
+          filteredMap,
+          Array.from(filteredMap.keys())
         );
         setCombinedData(combined);
-        setLoadedStocks(storedData.loadedStocks);
-        console.log(`Loaded cached data from localStorage for year ${year}`);
-      } else {
-        // Clear data if no cached data for this year
-        setCombinedData([]);
-        setLoadedStocks([]);
+        setLoadedStocks(Array.from(filteredMap.keys()));
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to load stock data"
+        );
+        console.error("Error loading stock data:", err);
       }
-      setIsInitialLoad(false);
     };
 
-    loadCachedData();
+    loadData();
   }, [year]);
-
-  // Check if we should fetch data for the given year
-  const shouldFetchDataForYear = (yearToCheck: number): boolean => {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1; // 1-12
-
-    // If year is in the future, don't fetch
-    if (yearToCheck > currentYear) {
-      return false;
-    }
-
-    // If year is current year, check if we've completed at least one month
-    if (yearToCheck === currentYear) {
-      // We need at least one complete month (currentMonth >= 2 means January is complete)
-      // Or if we're past the first day of February, January is complete
-      return currentMonth >= 2 || (currentMonth === 1 && today.getDate() > 1);
-    }
-
-    // For past years, always fetch
-    return true;
-  };
-
-  const handleFetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Check if we should fetch data for this year
-      if (!shouldFetchDataForYear(year)) {
-        console.log(
-          `Skipping data fetch for year ${year} - no complete months yet`
-        );
-        // Clear data but keep loadedStocks so charts/tables know which symbols to show
-        // This allows charts to display with "-" for missing data
-        setCombinedData([]);
-        setLoadedStocks(STOCKS); // Set to all stocks so charts display all symbols
-        setProgress(null);
-        setLoading(false);
-        return;
-      }
-
-      // Clear existing data when reloading
-      setCombinedData([]);
-      setLoadedStocks([]);
-      setProgress({ current: "", completed: 0, total: STOCKS.length });
-
-      const stockDataMap = new Map<string, PriceData[]>();
-
-      await fetchMultipleStockDataProgressive(
-        STOCKS,
-        (symbol, data, currentIndex, total) => {
-          stockDataMap.set(symbol, data);
-          setLoadedStocks((prev) => [...prev, symbol]);
-          setProgress({
-            current: symbol,
-            completed: currentIndex,
-            total,
-          });
-
-          // Update combined data as each stock loads
-          const combined = combineStockData(stockDataMap, STOCKS);
-          setCombinedData(combined);
-        },
-        year
-        // Starts with 13 second delay (5 req/min limit), increases to 15 seconds if rate limited
-      );
-
-      // Save to localStorage after all stocks are loaded
-      const finalLoadedStocks = Array.from(stockDataMap.keys());
-      saveStockDataToStorage(stockDataMap, finalLoadedStocks, year);
-      console.log(`Saved stock data to localStorage for year ${year}`);
-
-      setProgress(null);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch stock data"
-      );
-      console.error("Error fetching stock data:", err);
-      setProgress(null);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="App">
       <div className="header-bar">
         <div className="header-bar-content">
-          <div
-            style={{ position: "relative" }}
-            onMouseEnter={() => setShowTooltip(true)}
-            onMouseLeave={() => setShowTooltip(false)}
-          >
-            <button
-              onClick={handleFetchData}
-              disabled={loading}
-              className="reload-button"
-            >
-              {combinedData.length > 0 ? "Reload Data" : "Load Stock Data"}
-            </button>
-            {showTooltip && (
-              <div className="tooltip-card">
-                <div style={{ marginBottom: "4px", fontWeight: "600" }}>
-                  Estimated Time:
-                </div>
-                <div>{Math.ceil((STOCKS.length * 12) / 60)} minute(s)</div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    marginTop: "4px",
-                    opacity: 0.8,
-                  }}
-                >
-                  ({STOCKS.length} stocks × 12 seconds each)
-                </div>
-              </div>
-            )}
-          </div>
+          <h1 className="header-title">📈 Fake Stocks</h1>
           <div className="year-toggle">
             <span className="year-label">Year:</span>
             <select
@@ -252,37 +143,12 @@ function App() {
             </select>
           </div>
         </div>
-        {loading && progress && (
-          <div className="loading-progress-container">
-            <div className="loading-progress-header">
-              <span className="loading-progress-text">
-                {progress.current
-                  ? `Loading ${progress.current}...`
-                  : "Loading stocks..."}
-              </span>
-              <span className="loading-progress-count">
-                {progress.completed}/{progress.total}
-              </span>
-            </div>
-            <div className="loading-progress-bar">
-              <div
-                className="loading-progress-fill"
-                style={{
-                  width: `${(progress.completed / progress.total) * 100}%`,
-                }}
-              />
-            </div>
-          </div>
-        )}
         {error && (
           <p style={{ color: "#000000", marginTop: "20px", fontWeight: "600" }}>
             Error: {error}
           </p>
         )}
       </div>
-      <header className="App-header">
-        <h1>Stock Tracker</h1>
-      </header>
       <main className="App-main">
         <div className="stocks-container">
           {(combinedData.length > 0 || loadedStocks.length > 0) && (
@@ -296,7 +162,7 @@ function App() {
                       portfolioView === "chart" ? "active" : ""
                     }`}
                   >
-                    Chart
+                    Timeseries
                   </button>
                   <button
                     onClick={() => setPortfolioView("table")}
@@ -304,7 +170,15 @@ function App() {
                       portfolioView === "table" ? "active" : ""
                     }`}
                   >
-                    Table (YTD Growth)
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setPortfolioView("portfolios")}
+                    className={`tab-button ${
+                      portfolioView === "portfolios" ? "active" : ""
+                    }`}
+                  >
+                    Portfolios
                   </button>
                 </div>
                 <div className="tabbed-card-content">
@@ -317,8 +191,17 @@ function App() {
                       }
                       year={year}
                     />
-                  ) : (
+                  ) : portfolioView === "table" ? (
                     <PortfolioTable
+                      data={
+                        combinedData.length > 0
+                          ? combinedData
+                          : generateEmptyDataPoints(loadedStocks, year)
+                      }
+                      year={year}
+                    />
+                  ) : (
+                    <PortfolioGrid
                       data={
                         combinedData.length > 0
                           ? combinedData
@@ -333,35 +216,6 @@ function App() {
           )}
           <div>
             <h2 className="section-header">All Stocks</h2>
-            {combinedData.length === 0 &&
-              loadedStocks.length === 0 &&
-              !loading &&
-              !isInitialLoad && (
-                <div className="stock-card">
-                  <p
-                    style={{
-                      textAlign: "center",
-                      color: "#666",
-                      marginBottom: "20px",
-                    }}
-                  >
-                    Click the button above to load stock data
-                  </p>
-                </div>
-              )}
-            {isInitialLoad && (
-              <div className="stock-card">
-                <p
-                  style={{
-                    textAlign: "center",
-                    color: "#666",
-                    marginBottom: "20px",
-                  }}
-                >
-                  Loading cached data...
-                </p>
-              </div>
-            )}
             {(combinedData.length > 0 || loadedStocks.length > 0) && (
               <div className="tabbed-card">
                 <div className="tabs-container">
@@ -371,7 +225,7 @@ function App() {
                       stockView === "chart" ? "active" : ""
                     }`}
                   >
-                    Chart
+                    Timeseries
                   </button>
                   <button
                     onClick={() => setStockView("table")}

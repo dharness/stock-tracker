@@ -3,9 +3,9 @@
 
 import { PriceData } from "./stockDataServiceStatic";
 
-const getStorageKey = (year: number) => `stock-tracker-data-${year}`;
-const getStorageTimestampKey = (year: number) =>
-  `stock-tracker-timestamp-${year}`;
+// Store all data together (not year-specific)
+const STORAGE_KEY = "stock-tracker-data-all";
+const STORAGE_TIMESTAMP_KEY = "stock-tracker-timestamp-all";
 
 /**
  * Checks if localStorage is available and accessible
@@ -71,8 +71,8 @@ export const saveStockDataToStorage = (
       );
     }
 
-    localStorage.setItem(getStorageKey(year), dataString);
-    localStorage.setItem(getStorageTimestampKey(year), Date.now().toString());
+    localStorage.setItem(STORAGE_KEY, dataString);
+    localStorage.setItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
   } catch (error) {
     // Handle quota exceeded errors (common on mobile)
     if (
@@ -84,18 +84,15 @@ export const saveStockDataToStorage = (
       );
       try {
         // Try clearing old data and saving again
-        localStorage.removeItem(getStorageKey(year));
-        localStorage.removeItem(getStorageTimestampKey(year));
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(STORAGE_TIMESTAMP_KEY);
         const retryData: StoredData = {
           stockData: stockDataObj,
           loadedStocks,
           timestamp: Date.now(),
         };
-        localStorage.setItem(getStorageKey(year), JSON.stringify(retryData));
-        localStorage.setItem(
-          getStorageTimestampKey(year),
-          Date.now().toString()
-        );
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(retryData));
+        localStorage.setItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
       } catch (retryError) {
         console.error(
           "Error saving stock data to localStorage after retry:",
@@ -122,7 +119,7 @@ export const loadStockDataFromStorage = (
   }
 
   try {
-    const storedDataString = localStorage.getItem(getStorageKey(year));
+    const storedDataString = localStorage.getItem(STORAGE_KEY);
     if (!storedDataString) {
       return null;
     }
@@ -171,8 +168,8 @@ export const clearStoredStockData = (year: number = 2025): void => {
   }
 
   try {
-    localStorage.removeItem(getStorageKey(year));
-    localStorage.removeItem(getStorageTimestampKey(year));
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_TIMESTAMP_KEY);
   } catch (error) {
     console.error("Error clearing stock data from localStorage:", error);
   }
@@ -189,7 +186,7 @@ export const getStoredDataTimestamp = (year: number = 2025): number | null => {
   }
 
   try {
-    const timestamp = localStorage.getItem(getStorageTimestampKey(year));
+    const timestamp = localStorage.getItem(STORAGE_TIMESTAMP_KEY);
     return timestamp ? parseInt(timestamp, 10) : null;
   } catch (error) {
     console.error("Error getting stored data timestamp:", error);

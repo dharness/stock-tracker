@@ -14,7 +14,7 @@ export interface PriceData {
 interface StaticStockData {
   lastUpdated: string;
   stocks: {
-    [key: string]: PriceData[]; // Key format: "SYMBOL_YEAR"
+    [key: string]: PriceData[]; // Key format: "SYMBOL" (contains all historical data)
   };
 }
 
@@ -64,11 +64,11 @@ const loadStaticData = async (): Promise<StaticStockData | null> => {
 };
 
 /**
- * Fetches historical stock data from static JSON file
+ * Fetches historical stock data from static JSON file, filtered by year
  * @param symbol Stock ticker symbol (e.g., "AAPL")
- * @param year Year to fetch data for (default: 2025)
+ * @param year Year to filter data for (default: 2025)
  * @param retries Not used, kept for interface compatibility
- * @returns Array of price data points with date and price
+ * @returns Array of price data points with date and price for the specified year
  */
 export const fetchStockData = async (
   symbol: string,
@@ -77,29 +77,63 @@ export const fetchStockData = async (
 ): Promise<PriceData[]> => {
   const staticData = await loadStaticData();
   if (!staticData) {
-    console.warn(`Static data not available for ${symbol} (${year})`);
+    console.warn(`Static data not available for ${symbol}`);
     return [];
   }
 
-  const key = `${symbol}_${year}`;
-  const data = staticData.stocks[key];
+  // Try new format first (symbol key), then fall back to old format (symbol_year key)
+  let allData = staticData.stocks[symbol] || [];
+  
+  // If not found, try old format with year suffix
+  if (allData.length === 0) {
+    const oldKey = `${symbol}_${year}`;
+    allData = staticData.stocks[oldKey] || [];
+  }
+  
+  // If still not found, try to find any year for this symbol (for migration)
+  if (allData.length === 0) {
+    const symbolKeys = Object.keys(staticData.stocks).filter(key => key.startsWith(`${symbol}_`));
+    if (symbolKeys.length > 0) {
+      // Merge all years of data for this symbol
+      allData = [];
+      symbolKeys.forEach(key => {
+        const yearData = staticData.stocks[key] || [];
+        allData = allData.concat(yearData);
+      });
+      // Sort by date and remove duplicates
+      allData.sort((a, b) => a.date.localeCompare(b.date));
+    }
+  }
 
-  if (!data || data.length === 0) {
-    console.warn(`No data found for ${symbol} (${year}) in static file`);
+  if (!allData || allData.length === 0) {
+    console.warn(`No data found for ${symbol} in static file`);
+    return [];
+  }
+
+  // Filter by year
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+  const filteredData = allData.filter(
+    (point) => point.date >= yearStart && point.date <= yearEnd
+  );
+
+  if (filteredData.length === 0) {
+    console.warn(`No data found for ${symbol} in year ${year}`);
     return [];
   }
 
   console.log(
-    `Loaded ${symbol} (${year}) from static data: ${data.length} data points`
+    `Loaded ${symbol} (${year}) from static data: ${filteredData.length} data points (filtered from ${allData.length} total)`
   );
-  return data;
+  return filteredData;
 };
 
 /**
  * Fetches stock data for multiple symbols from static JSON file
+ * Returns all available data (not filtered by year)
  * @param symbols Array of stock ticker symbols
  * @param delayMs Not used, kept for interface compatibility
- * @returns Map of symbol to price data array
+ * @returns Map of symbol to price data array (all historical data)
  */
 export const fetchMultipleStockData = async (
   symbols: string[],
@@ -113,18 +147,27 @@ export const fetchMultipleStockData = async (
 
   const dataMap = new Map<string, PriceData[]>();
 
-  // Try to get data for current year first, then previous year
-  const currentYear = new Date().getFullYear();
-  const years = [currentYear, currentYear - 1];
-
   symbols.forEach((symbol) => {
-    for (const year of years) {
-      const key = `${symbol}_${year}`;
-      const data = staticData.stocks[key];
-      if (data && data.length > 0) {
-        dataMap.set(symbol, data);
-        break; // Found data for this symbol, move to next
+    // Try new format first (symbol key), then fall back to old format
+    let data = staticData.stocks[symbol] || [];
+    
+    // If not found, try to find any year for this symbol (for migration)
+    if (data.length === 0) {
+      const symbolKeys = Object.keys(staticData.stocks).filter(key => key.startsWith(`${symbol}_`));
+      if (symbolKeys.length > 0) {
+        // Merge all years of data for this symbol
+        data = [];
+        symbolKeys.forEach(key => {
+          const yearData = staticData.stocks[key] || [];
+          data = data.concat(yearData);
+        });
+        // Sort by date and remove duplicates
+        data.sort((a, b) => a.date.localeCompare(b.date));
       }
+    }
+    
+    if (data && data.length > 0) {
+      dataMap.set(symbol, data);
     }
   });
 
@@ -133,10 +176,10 @@ export const fetchMultipleStockData = async (
 
 /**
  * Fetches stock data progressively from static JSON file
- * Calls onProgress for each stock as it's loaded
+ * Calls onProgress for each stock as it's loaded, filtered by year
  * @param symbols Array of stock ticker symbols
  * @param onProgress Callback called when each stock is loaded (symbol, data, currentIndex, total)
- * @param year Year to fetch data for (default: 2025)
+ * @param year Year to filter data for (default: 2025)
  * @param initialDelayMs Not used, kept for interface compatibility
  * @param rateLimitedDelayMs Not used, kept for interface compatibility
  */
@@ -162,20 +205,50 @@ export const fetchMultipleStockDataProgressive = async (
     return;
   }
 
+  // Filter by year
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+
   let completed = 0;
   symbols.forEach((symbol) => {
-    const key = `${symbol}_${year}`;
-    const data = staticData.stocks[key] || [];
+    // Try new format first (symbol key), then fall back to old format (symbol_year key)
+    let allData = staticData.stocks[symbol] || [];
+    
+    // If not found, try old format with year suffix
+    if (allData.length === 0) {
+      const oldKey = `${symbol}_${year}`;
+      allData = staticData.stocks[oldKey] || [];
+    }
+    
+    // If still not found, try to find any year for this symbol (for migration)
+    if (allData.length === 0) {
+      const symbolKeys = Object.keys(staticData.stocks).filter(key => key.startsWith(`${symbol}_`));
+      if (symbolKeys.length > 0) {
+        // Merge all years of data for this symbol
+        allData = [];
+        symbolKeys.forEach(key => {
+          const yearData = staticData.stocks[key] || [];
+          allData = allData.concat(yearData);
+        });
+        // Sort by date and remove duplicates
+        allData.sort((a, b) => a.date.localeCompare(b.date));
+      }
+    }
+    
+    // Filter data for the specified year
+    const filteredData = allData.filter(
+      (point) => point.date >= yearStart && point.date <= yearEnd
+    );
 
-    if (data.length > 0) {
+    if (filteredData.length > 0) {
       completed++;
       console.log(
-        `Loaded ${symbol} (${year}) from static data: ${data.length} data points`
+        `Loaded ${symbol} (${year}) from static data: ${filteredData.length} data points (filtered from ${allData.length} total)`
       );
     } else {
       console.warn(`No data found for ${symbol} (${year}) in static file`);
     }
 
-    onProgress(symbol, data, completed, symbols.length);
+    onProgress(symbol, filteredData, completed, symbols.length);
   });
 };

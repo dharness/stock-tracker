@@ -209,7 +209,11 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
             tickFormatter={formatDate}
             stroke="#666"
             style={{ fontSize: isMobile ? "10px" : "12px" }}
-            interval={isMobile ? "preserveStartEnd" : undefined}
+            interval={
+              isMobile
+                ? "preserveStartEnd"
+                : Math.floor(portfolioData.length / 8)
+            }
             angle={isMobile ? -45 : 0}
             textAnchor={isMobile ? "end" : "middle"}
             height={isMobile ? 60 : undefined}
@@ -247,7 +251,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
           <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="line" />
           {people.map((person, index) => (
             <Line
-              key={person}
+              key={`${person}-${index}`}
               type="monotone"
               dataKey={person}
               stroke={PORTFOLIO_COLORS[index % PORTFOLIO_COLORS.length]}

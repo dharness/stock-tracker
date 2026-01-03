@@ -167,7 +167,7 @@ const StockTable: React.FC<StockTableProps> = ({ data, symbols, year }) => {
                 if (currentPrice === null || currentPrice === undefined) {
                   return (
                     <td
-                      key={symbol}
+                      key={`${row.key}-${symbol}`}
                       style={{
                         padding: "12px",
                         textAlign: "right",
@@ -183,7 +183,7 @@ const StockTable: React.FC<StockTableProps> = ({ data, symbols, year }) => {
                 if (baseline === undefined || baseline === 0) {
                   return (
                     <td
-                      key={symbol}
+                      key={`${row.key}-${symbol}`}
                       style={{
                         padding: "12px",
                         textAlign: "right",
@@ -204,7 +204,7 @@ const StockTable: React.FC<StockTableProps> = ({ data, symbols, year }) => {
 
                 return (
                   <td
-                    key={symbol}
+                    key={`${row.key}-${symbol}`}
                     style={{
                       padding: "12px",
                       textAlign: "right",
@@ -212,7 +212,7 @@ const StockTable: React.FC<StockTableProps> = ({ data, symbols, year }) => {
                       fontWeight: "500",
                     }}
                   >
-                    ${change >= 0 ? "+" : ""}
+                    {change >= 0 ? "+" : ""}
                     {Math.round(change).toLocaleString("en-US")}
                   </td>
                 );

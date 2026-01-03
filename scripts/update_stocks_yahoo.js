@@ -28,28 +28,8 @@ const OUTPUT_PATH = path.join(OUTPUT_DIR, OUTPUT_FILE);
 // END CONFIGURATION SECTION
 // ============================================================================
 
-// Get all unique stocks from portfolios
-const PORTFOLIOS = {
-  Naila: {
-    CRDO: 35000,
-    NBIS: 25000,
-    VKTX: 20000,
-    ASTS: 20000,
-  },
-  Colby: {
-    ONDS: 25000,
-    TSM: 25000,
-    POET: 25000,
-    NBIS: 25000,
-  },
-  Dylan: {
-    ALAB: 25000,
-    AVGO: 25000,
-    APP: 25000,
-    RCAT: 25000,
-  },
-  Faith: {},
-};
+// Import portfolios from the single source of truth
+const PORTFOLIOS = require("../src/data/portfoliosData.json");
 
 const getAllStocks = () => {
   const allStocksSet = new Set();
@@ -179,20 +159,38 @@ const main = async () => {
   try {
     const stockData = await fetchAllStocks();
 
+    // Filter to only include stocks that are in the portfolios
+    const validStocks = new Set(STOCKS);
+    const filteredStockData = {};
+    Object.keys(stockData).forEach((symbol) => {
+      if (validStocks.has(symbol)) {
+        filteredStockData[symbol] = stockData[symbol];
+      } else {
+        console.warn(`⚠ Filtered out ${symbol} (not in portfolios)`);
+      }
+    });
+
     // Create data directory if it doesn't exist
     if (!fs.existsSync(OUTPUT_DIR)) {
       fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     }
 
-    // Save to JSON file
+    // Save to JSON file - only stocks from portfolios
     const output = {
       lastUpdated: new Date().toISOString(),
-      stocks: stockData,
+      stocks: filteredStockData,
     };
 
     fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2));
     console.log(`\n✓ Successfully saved stock data to ${OUTPUT_PATH}`);
-    console.log(`  Total symbols: ${Object.keys(stockData).length}`);
+    console.log(`  Total symbols: ${Object.keys(filteredStockData).length}`);
+    console.log(`  Expected symbols: ${STOCKS.length}`);
+    
+    // Warn if any expected stocks are missing
+    const missingStocks = STOCKS.filter((symbol) => !filteredStockData[symbol]);
+    if (missingStocks.length > 0) {
+      console.warn(`  ⚠ Missing stocks: ${missingStocks.join(", ")}`);
+    }
   } catch (error) {
     console.error("Fatal error:", error);
     process.exit(1);

@@ -70,8 +70,8 @@ const StockChart: React.FC<StockChartProps> = ({ data, symbols }) => {
   };
 
   // Calculate Y-axis domain based on all stock prices
+  // Always starts at 0 since stock prices can't be negative
   const getYAxisDomain = () => {
-    let min = Infinity;
     let max = -Infinity;
 
     data.forEach((point) => {
@@ -83,21 +83,21 @@ const StockChart: React.FC<StockChartProps> = ({ data, symbols }) => {
           typeof price === "number" &&
           price > 0
         ) {
-          min = Math.min(min, price);
           max = Math.max(max, price);
         }
       });
     });
 
     // If no valid data found, return default domain
-    if (min === Infinity || max === -Infinity) {
+    if (max === -Infinity) {
       console.warn("No valid price data found for chart");
       return [0, 100];
     }
 
-    // Add 5% padding and round to nice numbers
-    const padding = (max - min) * 0.05;
-    return getNiceDomain(min - padding, max + padding);
+    // Add 5% padding to the top and always start at 0
+    const padding = max * 0.05;
+    const niceMax = getNiceDomain(0, max + padding)[1];
+    return [0, niceMax];
   };
 
   const [yMin, yMax] = getYAxisDomain();
@@ -131,7 +131,7 @@ const StockChart: React.FC<StockChartProps> = ({ data, symbols }) => {
             tickFormatter={formatDate}
             stroke="#666"
             style={{ fontSize: isMobile ? "10px" : "12px" }}
-            interval={isMobile ? "preserveStartEnd" : undefined}
+            interval={isMobile ? "preserveStartEnd" : Math.floor(data.length / 8)}
             angle={isMobile ? -45 : 0}
             textAnchor={isMobile ? "end" : "middle"}
             height={isMobile ? 60 : undefined}
@@ -169,7 +169,7 @@ const StockChart: React.FC<StockChartProps> = ({ data, symbols }) => {
           <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="line" />
           {symbols.map((symbol, index) => (
             <Line
-              key={symbol}
+              key={`${symbol}-${index}`}
               type="monotone"
               dataKey={symbol}
               stroke={STOCK_COLORS[index % STOCK_COLORS.length]}

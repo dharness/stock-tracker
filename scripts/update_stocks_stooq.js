@@ -23,28 +23,8 @@ const OUTPUT_PATH = path.join(OUTPUT_DIR, OUTPUT_FILE);
 // END CONFIGURATION SECTION
 // ============================================================================
 
-// Get all unique stocks from portfolios
-const PORTFOLIOS = {
-  Naila: {
-    CRDO: 35000,
-    NBIS: 25000,
-    VKTX: 20000,
-    ASTS: 20000,
-  },
-  Colby: {
-    ONDS: 25000,
-    TSM: 25000,
-    POET: 25000,
-    NBIS: 25000,
-  },
-  Dylan: {
-    ALAB: 25000,
-    AVGO: 25000,
-    APP: 25000,
-    RCAT: 25000,
-  },
-  Faith: {},
-};
+// Import portfolios from the single source of truth
+const PORTFOLIOS = require("../src/data/portfoliosData.json");
 
 const getAllStocks = () => {
   const allStocksSet = new Set();
@@ -59,12 +39,11 @@ const STOCKS = getAllStocks();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Fetches stock data from Stooq for a given ticker
+ * Fetches all historical stock data from Stooq for a given ticker
  * @param ticker Stock ticker symbol (without .US suffix)
- * @param year Year to filter data for
- * @returns Array of price data points
+ * @returns Array of price data points (all available historical data)
  */
-const fetchStockData = async (ticker, year = 2025, retries = 3) => {
+const fetchStockData = async (ticker, retries = 3) => {
   // Stooq uses .US suffix for American exchanges
   const url = `${STOOQ_BASE_URL}?s=${ticker}.US&i=d`;
 
@@ -79,19 +58,12 @@ const fetchStockData = async (ticker, year = 2025, retries = 3) => {
       });
 
       if (!records || records.length === 0) {
-        console.warn(`No data returned for ${ticker} in ${year}`);
+        console.warn(`No data returned for ${ticker}`);
         return [];
       }
 
-      // Filter records for the specified year and convert to our format
-      const yearStart = new Date(`${year}-01-01`);
-      const yearEnd = new Date(`${year}-12-31`);
-
+      // Convert all records to our format (no year filtering)
       const priceData = records
-        .filter((record) => {
-          const recordDate = new Date(record.Date);
-          return recordDate >= yearStart && recordDate <= yearEnd;
-        })
         .map((record) => {
           // Stooq CSV format: Date,Open,High,Low,Close,Volume
           // We use Close price
@@ -126,47 +98,40 @@ const fetchStockData = async (ticker, year = 2025, retries = 3) => {
 
 const fetchAllStocks = async () => {
   const dataMap = {};
-  const currentYear = new Date().getFullYear();
 
-  // Fetch data for current year and previous year
-  const years = [currentYear - 1, currentYear];
+  console.log(`\nFetching all historical data for ${STOCKS.length} stocks...`);
 
-  for (const year of years) {
-    console.log(`\nFetching data for year ${year}...`);
+  for (let i = 0; i < STOCKS.length; i++) {
+    const symbol = STOCKS[i];
+    try {
+      console.log(`Fetching ${symbol} (${i + 1}/${STOCKS.length})...`);
 
-    for (let i = 0; i < STOCKS.length; i++) {
-      const symbol = STOCKS[i];
-      try {
+      const data = await fetchStockData(symbol);
+
+      if (data.length > 0) {
+        // Store all data under symbol key (not year-specific)
+        dataMap[symbol] = data;
+        const dateRange =
+          data.length > 0
+            ? `${data[0].date} to ${data[data.length - 1].date}`
+            : "N/A";
         console.log(
-          `Fetching ${symbol} (${i + 1}/${STOCKS.length}) for ${year}...`
+          `✓ Fetched ${data.length} data points for ${symbol} (${dateRange})`
         );
+      } else {
+        console.warn(`⚠ No data found for ${symbol}`);
+      }
 
-        const data = await fetchStockData(symbol, year);
-
-        if (data.length > 0) {
-          const key = `${symbol}_${year}`;
-          dataMap[key] = data;
-          console.log(
-            `✓ Fetched ${data.length} data points for ${symbol} (${year})`
-          );
-        } else {
-          console.warn(`⚠ No data found for ${symbol} in ${year}`);
-        }
-
-        // 2 second delay between requests
-        if (i < STOCKS.length - 1) {
-          await delay(DELAY_BETWEEN_REQUESTS_MS);
-        }
-      } catch (error) {
-        console.error(
-          `✗ Failed to fetch ${symbol} for ${year}:`,
-          error.message
-        );
-        // Continue with next stock even if one fails
-        // Still add delay before next request
-        if (i < STOCKS.length - 1) {
-          await delay(DELAY_BETWEEN_REQUESTS_MS);
-        }
+      // 2 second delay between requests
+      if (i < STOCKS.length - 1) {
+        await delay(DELAY_BETWEEN_REQUESTS_MS);
+      }
+    } catch (error) {
+      console.error(`✗ Failed to fetch ${symbol}:`, error.message);
+      // Continue with next stock even if one fails
+      // Still add delay before next request
+      if (i < STOCKS.length - 1) {
+        await delay(DELAY_BETWEEN_REQUESTS_MS);
       }
     }
   }
@@ -181,20 +146,38 @@ const main = async () => {
   try {
     const stockData = await fetchAllStocks();
 
+    // Filter to only include stocks that are in the portfolios
+    const validStocks = new Set(STOCKS);
+    const filteredStockData = {};
+    Object.keys(stockData).forEach((symbol) => {
+      if (validStocks.has(symbol)) {
+        filteredStockData[symbol] = stockData[symbol];
+      } else {
+        console.warn(`⚠ Filtered out ${symbol} (not in portfolios)`);
+      }
+    });
+
     // Create data directory if it doesn't exist
     if (!fs.existsSync(OUTPUT_DIR)) {
       fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     }
 
-    // Save to JSON file
+    // Save to JSON file - only stocks from portfolios
     const output = {
       lastUpdated: new Date().toISOString(),
-      stocks: stockData,
+      stocks: filteredStockData,
     };
 
     fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2));
     console.log(`\n✓ Successfully saved stock data to ${OUTPUT_PATH}`);
-    console.log(`  Total symbols: ${Object.keys(stockData).length}`);
+    console.log(`  Total symbols: ${Object.keys(filteredStockData).length}`);
+    console.log(`  Expected symbols: ${STOCKS.length}`);
+
+    // Warn if any expected stocks are missing
+    const missingStocks = STOCKS.filter((symbol) => !filteredStockData[symbol]);
+    if (missingStocks.length > 0) {
+      console.warn(`  ⚠ Missing stocks: ${missingStocks.join(", ")}`);
+    }
   } catch (error) {
     console.error("Fatal error:", error);
     process.exit(1);
