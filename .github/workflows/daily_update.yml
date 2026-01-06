@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # Required to commit and push changes
+      pages: write # Required to deploy to GitHub Pages
+      id-token: write # Required for GitHub Pages deployment
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -24,7 +26,7 @@ jobs:
         run: npm install
 
       - name: Fetch Stock Data
-        run: node scripts/update_stocks_stooq.js
+        run: node scripts/update_stocks.js
 
       - name: Commit and Push changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -32,3 +34,12 @@ jobs:
           commit_message: "Automated daily stock update"
           file_pattern: "public/data/*.json"
           skip_dirty_check: true
+
+      - name: Build React app
+        run: npm run build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build

@@ -40,7 +40,17 @@ const loadStaticData = async (): Promise<StaticStockData | null> => {
   // Start loading
   cacheLoadPromise = (async () => {
     try {
-      const response = await fetch(STATIC_DATA_URL);
+      // Add cache-busting timestamp to ensure fresh fetch every time
+      const cacheBuster = `?t=${Date.now()}`;
+      const urlWithCacheBuster = `${STATIC_DATA_URL}${cacheBuster}`;
+      const response = await fetch(urlWithCacheBuster, {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       if (!response.ok) {
         console.warn("Static data file not found, returning null");
         return null;

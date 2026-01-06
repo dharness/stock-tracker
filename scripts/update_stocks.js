@@ -1,21 +1,19 @@
-// Script to fetch stock data and save to JSON file
+// Script to fetch stock data from Stooq and save to JSON file
 // This runs in GitHub Actions daily to update stock data
 
 const fs = require("fs");
 const path = require("path");
+const axios = require("axios");
+const { parse } = require("csv-parse/sync");
+const { fetchStockDataFromMassive } = require("./massiveStockFetcher");
 
 // ============================================================================
 // CONFIGURATION SECTION
 // ============================================================================
 
 // API Configuration
-const MASSIVE_API_KEY = "d3WXhBdil6HaNoavpTZyzQXs8qz5a0Iv";
-const BASE_URL =
-  "https://api.massive.com/v2/aggs/grouped/locale/us/market/stocks";
-
-// Rate limiting: Not needed with grouped endpoint - one request per trading day
-// Using a small delay between requests to be respectful
-const DELAY_BETWEEN_REQUESTS_MS = 1000; // 1 second delay between daily requests
+const STOOQ_BASE_URL = "https://stooq.com/q/d/l/";
+const DELAY_BETWEEN_REQUESTS_MS = 5000;
 
 // Output configuration
 const OUTPUT_FILE = "stocks.json";
@@ -25,25 +23,6 @@ const OUTPUT_PATH = path.join(OUTPUT_DIR, OUTPUT_FILE);
 // ============================================================================
 // END CONFIGURATION SECTION
 // ============================================================================
-
-// Helper to get all trading days in a year (weekdays only, excluding holidays)
-const getTradingDays = (year) => {
-  const tradingDays = [];
-  const startDate = new Date(`${year}-01-01`);
-  const endDate = new Date(`${year}-12-31`);
-
-  const currentDate = new Date(startDate);
-  while (currentDate <= endDate) {
-    const dayOfWeek = currentDate.getDay();
-    // Skip weekends (0 = Sunday, 6 = Saturday)
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      tradingDays.push(new Date(currentDate));
-    }
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-
-  return tradingDays;
-};
 
 // Import portfolios from the single source of truth
 const PORTFOLIOS = require("../src/data/portfoliosData.json");
@@ -66,55 +45,56 @@ const STOCKS = getAllStocks();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Fetches daily market data for a specific date using the grouped endpoint
- * Returns data for all stocks, we'll filter for the ones we need
- * @param date Date object for the trading day
- * @returns Array of stock data with symbol and price info
+ * Fetches all historical stock data from Stooq for a given ticker
+ * @param ticker Stock ticker symbol (without .US suffix)
+ * @returns Array of price data points (all available historical data)
  */
-const fetchDailyMarketData = async (date, retries = 3) => {
-  // Format date as YYYY-MM-DD
-  const dateStr = date.toISOString().split("T")[0];
-  const url = `${BASE_URL}/${dateStr}?apiKey=${MASSIVE_API_KEY}`;
+const fetchStockData = async (ticker, retries = 3) => {
+  // Stooq uses .US suffix for American exchanges
+  const url = `${STOOQ_BASE_URL}?s=${ticker}.US&i=d`;
 
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      const response = await fetch(url);
+      const response = await axios.get(url);
 
-      // If we get rate limited, raise an exception
-      if (response.status === 429) {
-        const retryAfter = response.headers.get("Retry-After");
-        const errorMsg = `Rate limited for ${dateStr} (429).${
-          retryAfter ? ` Retry-After: ${retryAfter}s` : ""
-        }`;
-        console.error(errorMsg);
-        throw new Error(errorMsg);
+      // Stooq returns a raw CSV string
+      const records = parse(response.data, {
+        columns: true,
+        skip_empty_lines: true,
+      });
+
+      if (!records || records.length === 0) {
+        console.warn(`No data returned for ${ticker}`);
+        return [];
       }
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch market data for ${dateStr}: ${response.status}`
-        );
-      }
+      // Convert all records to our format (no year filtering)
+      const priceData = records
+        .map((record) => {
+          // Stooq CSV format: Date,Open,High,Low,Close,Volume
+          // We use Close price
+          const date = new Date(record.Date);
+          return {
+            date: date.toISOString().split("T")[0], // YYYY-MM-DD format
+            price: parseFloat(record.Close),
+          };
+        })
+        .filter((point) => !isNaN(point.price)) // Filter out invalid prices
+        .sort((a, b) => a.date.localeCompare(b.date)); // Sort by date
 
-      const data = await response.json();
-
-      if (
-        (data.status !== "OK" && data.status !== "DELAYED") ||
-        !data.results
-      ) {
-        throw new Error(`API error for ${dateStr}: ${data.status}`);
-      }
-
-      // Return the results array with all stocks
-      return data.results || [];
+      return priceData;
     } catch (error) {
+      const errorMessage = error.message || String(error);
+      console.error(
+        `Error fetching ${ticker} after ${attempt + 1} attempts:`,
+        errorMessage
+      );
+
       if (attempt === retries - 1) {
-        console.error(
-          `Error fetching market data for ${dateStr} after ${retries} attempts:`,
-          error
-        );
         throw error;
       }
+
+      // Exponential backoff
       await delay(Math.pow(2, attempt) * 1000);
     }
   }
@@ -124,90 +104,63 @@ const fetchDailyMarketData = async (date, retries = 3) => {
 
 const fetchAllStocks = async () => {
   const dataMap = {};
-  const currentYear = new Date().getFullYear();
 
-  // Fetch data for current year and previous year
-  const years = [currentYear - 1, currentYear];
+  console.log(`\nFetching all historical data for ${STOCKS.length} stocks...`);
 
-  // Create a Set for fast lookup of stocks we care about
-  const stocksSet = new Set(STOCKS);
+  for (let i = 0; i < STOCKS.length; i++) {
+    const symbol = STOCKS[i];
+    try {
+      console.log(`Fetching ${symbol} (${i + 1}/${STOCKS.length})...`);
 
-  for (const year of years) {
-    console.log(`\nFetching data for year ${year}...`);
+      // Try Stooq first
+      let data = await fetchStockData(symbol);
 
-    // Get all trading days for this year
-    const tradingDays = getTradingDays(year);
-    console.log(`  Found ${tradingDays.length} trading days in ${year}`);
-
-    // Initialize data structures for each stock
-    const stockDataMap = {};
-    STOCKS.forEach((symbol) => {
-      stockDataMap[symbol] = [];
-    });
-
-    // Fetch data for each trading day
-    for (let i = 0; i < tradingDays.length; i++) {
-      const date = tradingDays[i];
-      const dateStr = date.toISOString().split("T")[0];
-
-      try {
-        console.log(
-          `  Fetching market data for ${dateStr} (${i + 1}/${
-            tradingDays.length
-          })...`
-        );
-
-        const marketData = await fetchDailyMarketData(date);
-
-        // Filter for stocks we care about and extract their prices
-        marketData.forEach((stock) => {
-          const symbol = stock.T; // T is the ticker symbol
-          if (stocksSet.has(symbol)) {
-            if (!stockDataMap[symbol]) {
-              stockDataMap[symbol] = [];
-            }
-            stockDataMap[symbol].push({
-              date: dateStr,
-              price: stock.c, // c is the close price
-            });
+      // If Stooq didn't return data, try Massive API as fallback
+      if (data.length === 0) {
+        console.log(`  No data from Stooq, trying Massive API...`);
+        try {
+          data = await fetchStockDataFromMassive(symbol);
+          if (data.length > 0) {
+            console.log(`  ✓ Got data from Massive API fallback`);
           }
-        });
-
-        // Small delay between requests to be respectful
-        if (i < tradingDays.length - 1) {
-          await delay(DELAY_BETWEEN_REQUESTS_MS);
+        } catch (massiveError) {
+          console.warn(`  Massive API also failed: ${massiveError.message}`);
         }
-      } catch (error) {
-        console.error(
-          `  ✗ Failed to fetch data for ${dateStr}:`,
-          error.message
-        );
-        // Continue with next day even if one fails
       }
-    }
 
-    // Sort and store data for each stock
-    STOCKS.forEach((symbol) => {
-      const data = stockDataMap[symbol];
-      if (data && data.length > 0) {
-        // Sort by date
-        data.sort((a, b) => a.date.localeCompare(b.date));
-        const key = `${symbol}_${year}`;
-        dataMap[key] = data;
+      if (data.length > 0) {
+        // Store all data under symbol key (not year-specific)
+        dataMap[symbol] = data;
+        const dateRange =
+          data.length > 0
+            ? `${data[0].date} to ${data[data.length - 1].date}`
+            : "N/A";
         console.log(
-          `  ✓ Collected ${data.length} data points for ${symbol} (${year})`
+          `✓ Fetched ${data.length} data points for ${symbol} (${dateRange})`
         );
       } else {
-        console.warn(`  ⚠ No data found for ${symbol} in ${year}`);
+        console.warn(`⚠ No data found for ${symbol} from any source`);
       }
-    });
+
+      // 2 second delay between requests
+      if (i < STOCKS.length - 1) {
+        await delay(DELAY_BETWEEN_REQUESTS_MS);
+      }
+    } catch (error) {
+      console.error(`✗ Failed to fetch ${symbol}:`, error.message);
+      // Continue with next stock even if one fails
+      // Still add delay before next request
+      if (i < STOCKS.length - 1) {
+        await delay(DELAY_BETWEEN_REQUESTS_MS);
+      }
+    }
   }
 
   return dataMap;
 };
 
 const main = async () => {
-  console.log("Starting stock data update...");
+  console.log("Starting stock data update using Stooq...");
   console.log(`Fetching ${STOCKS.length} stocks: ${STOCKS.join(", ")}`);
 
   try {
