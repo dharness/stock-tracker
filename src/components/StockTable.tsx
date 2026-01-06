@@ -103,17 +103,15 @@ const StockTable: React.FC<StockTableProps> = ({ data, symbols, year }) => {
   const monthlyRows: (MonthlyDataPoint & { key: string })[] =
     expectedMonths.map((key) => ({ key, ...monthlyData[key] }));
 
-  // Helper function to format YTD growth with color and arrow
+  // Helper function to format YTD growth with color
   const formatYTDGrowth = (value: number, baseline: number) => {
     const change = value - baseline;
     const isPositive = change > 0;
     const isNegative = change < 0;
-    const isZero = change === 0;
 
     const color = isPositive ? "#10b981" : isNegative ? "#ef4444" : "#6b7280";
-    const arrow = isPositive ? "↑" : isNegative ? "↓" : "";
 
-    return { change, color, arrow };
+    return { change, color };
   };
 
   return (
@@ -197,7 +195,7 @@ const StockTable: React.FC<StockTableProps> = ({ data, symbols, year }) => {
 
                 const price =
                   typeof currentPrice === "number" ? currentPrice : 0;
-                const { change, color, arrow } = formatYTDGrowth(
+                const { change, color } = formatYTDGrowth(
                   price,
                   baseline
                 );
