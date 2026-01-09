@@ -9,8 +9,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { PORTFOLIOS } from "../data/portfoliosData";
-
 type CombinedPriceData = {
   date: string;
   [symbol: string]: string | number | null;
@@ -19,12 +17,21 @@ type CombinedPriceData = {
 interface PortfolioChartProps {
   data: CombinedPriceData[];
   year: number;
+  portfolios: {
+    [person: string]: {
+      [symbol: string]: number;
+    };
+  };
 }
 
 // Color palette for different people
 const PORTFOLIO_COLORS = ["#667eea", "#764ba2", "#f093fb"];
 
-const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
+const PortfolioChart: React.FC<PortfolioChartProps> = ({
+  data,
+  year,
+  portfolios,
+}) => {
   // Format date for display (show only month/day)
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -33,12 +40,12 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
 
   // Calculate portfolio values for each person
   const calculatePortfolioData = () => {
-    const people = Object.keys(PORTFOLIOS);
+    const people = Object.keys(portfolios);
 
     // Get all unique symbols from all portfolios (excluding cash_amount)
     const allSymbols = new Set<string>();
     people.forEach((person) => {
-      const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+      const portfolio = portfolios[person];
       Object.keys(portfolio).forEach((symbol) => {
         // Skip special "cash_amount" key - it's handled separately
         if (symbol !== "cash_amount") {
@@ -64,7 +71,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
     // Calculate shares for each person based on initial investment
     const shares: { [person: string]: { [symbol: string]: number } } = {};
     people.forEach((person) => {
-      const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+      const portfolio = portfolios[person];
       shares[person] = {};
       Object.entries(portfolio).forEach(([symbol, investment]) => {
         const initialPrice = initialPrices[symbol];
@@ -87,7 +94,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
 
       // Calculate total portfolio value for each person
       people.forEach((person) => {
-        const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+        const portfolio = portfolios[person];
         let totalValue = 0;
 
         Object.keys(portfolio).forEach((symbol) => {
@@ -147,7 +154,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ data, year }) => {
   };
 
   const portfolioData = calculatePortfolioData();
-  const people = Object.keys(PORTFOLIOS);
+  const people = Object.keys(portfolios);
 
   // Format large numbers for display (e.g., 100000 -> "100K")
   const formatCurrency = (value: number): string => {

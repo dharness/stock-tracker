@@ -1,33 +1,39 @@
 {
-  "Naila": {
-    "CRDO": 35000,
-    "NBIS": 25000,
-    "VKTX": 20000,
-    "ASTS": 20000
+  "portfolios": {
+    "Naila": {
+      "CRDO": 35000,
+      "NBIS": 25000,
+      "VKTX": 20000,
+      "ASTS": 20000
+    },
+    "Colby": {
+      "ONDS": 25000,
+      "TSM": 25000,
+      "POET": 25000,
+      "NBIS": 25000
+    },
+    "Dylan": {
+      "LLY": 10000,
+      "VKTX": 5000,
+      "GOOG": 10000,
+      "CEG": 15000,
+      "CCJ": 10000,
+      "AMD": 5000,
+      "MU": 5000,
+      "ASML": 10000,
+      "EWY": 10000,
+      "TCEHY": 3000,
+      "AFK": 7000,
+      "INR": 3000,
+      "JNJ": 3000,
+      "LHX": 4000
+    },
+    "Faith": {
+      "cash_amount": 100000
+    }
   },
-  "Colby": {
-    "ONDS": 25000,
-    "TSM": 25000,
-    "POET": 25000,
-    "NBIS": 25000
-  },
-  "Dylan": {
-    "LLY": 10000,
-    "VKTX": 5000,
-    "GOOG": 10000,
-    "CEG": 15000,
-    "CCJ": 10000,
-    "AMD": 5000,
-    "MU": 5000,
-    "ASML": 10000,
-    "EWY": 10000,
-    "TCEHY": 3000,
-    "AFK": 7000,
-    "INR": 3000,
-    "JNJ": 3000,
-    "LHX": 4000
-  },
-  "Faith": {
-    "cash_amount": 100000
+  "portfolioGroups": {
+    "default": ["Naila", "Colby", "Dylan", "Faith"],
+    "betting": ["Naila", "Dylan"]
   }
 }
