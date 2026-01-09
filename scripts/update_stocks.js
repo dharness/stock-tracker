@@ -26,55 +26,11 @@ const OUTPUT_PATH = path.join(OUTPUT_DIR, OUTPUT_FILE);
 
 // Import portfolios from the single source of truth
 const portfoliosData = require("../src/data/portfoliosData.json");
+const { getFlattenedPortfolios, getAllStocks } = require("../src/shared/portfoliosHelper");
 
-// Helper to get flattened portfolios from the normalized structure
-const getFlattenedPortfolios = () => {
-  // Check if normalized structure (with portfolios and portfolioGroups)
-  if (portfoliosData.portfolios && portfoliosData.portfolioGroups) {
-    // Use "default" group, or merge all groups if "default" doesn't exist
-    const groupNames = portfoliosData.portfolioGroups.default
-      ? ["default"]
-      : Object.keys(portfoliosData.portfolioGroups);
-
-    // Collect all unique portfolio names from the groups
-    const portfolioNames = new Set();
-    groupNames.forEach((groupName) => {
-      const group = portfoliosData.portfolioGroups[groupName];
-      if (Array.isArray(group)) {
-        group.forEach((portfolioName) => portfolioNames.add(portfolioName));
-      }
-    });
-
-    // Build flattened object from normalized portfolios
-    const flattened = {};
-    portfolioNames.forEach((portfolioName) => {
-      if (portfoliosData.portfolios[portfolioName]) {
-        flattened[portfolioName] = portfoliosData.portfolios[portfolioName];
-      }
-    });
-
-    return flattened;
-  }
-  // Old structure (no normalization) - return as-is
-  return portfoliosData;
-};
-
-const PORTFOLIOS = getFlattenedPortfolios();
-
-const getAllStocks = () => {
-  const allStocksSet = new Set();
-  Object.values(PORTFOLIOS).forEach((portfolio) => {
-    Object.keys(portfolio).forEach((stock) => {
-      // Skip special "cash_amount" key - it's not a stock ticker
-      if (stock !== "cash_amount") {
-        allStocksSet.add(stock);
-      }
-    });
-  });
-  return Array.from(allStocksSet).sort();
-};
-
-const STOCKS = getAllStocks();
+// Get flattened portfolios for the default group (used by update scripts)
+const PORTFOLIOS = getFlattenedPortfolios(portfoliosData, "default");
+const STOCKS = getAllStocks(PORTFOLIOS);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
