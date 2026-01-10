@@ -1,25 +1,22 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import './index.css';
-import App from './App';
-import reportWebVitals from './reportWebVitals';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import App from "./App";
+import "./index.css";
+import reportWebVitals from "./reportWebVitals";
 
 const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
+  document.getElementById("root") as HTMLElement
 );
-
-// Get basename from PUBLIC_URL for GitHub Pages
-const basename = process.env.PUBLIC_URL || '';
 
 root.render(
   <React.StrictMode>
-    <BrowserRouter basename={basename}>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/default" replace />} />
         <Route path="/:group" element={<App />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   </React.StrictMode>
 );
 
