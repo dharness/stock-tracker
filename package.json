@@ -12,10 +12,12 @@
     "@types/node": "^16.18.126",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/react-router-dom": "^5.3.3",
     "axios": "^1.13.2",
     "csv-parse": "^6.1.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-router-dom": "^7.12.0",
     "react-scripts": "5.0.1",
     "recharts": "^3.6.0",
     "typescript": "^4.9.5",
@@ -30,7 +32,8 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
-    "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix"
+    "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
+    "update-stocks": "node scripts/update_stocks.js"
   },
   "eslintConfig": {
     "extends": [
@@ -51,6 +54,7 @@
     ]
   },
   "devDependencies": {
+    "dotenv": "^17.2.3",
     "gh-pages": "^6.3.0"
   }
 }

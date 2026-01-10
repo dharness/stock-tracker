@@ -1,10 +1,11 @@
-import { PORTFOLIOS } from "./portfoliosData";
 import { fetchMultipleStockData } from "../services/stockDataServiceStatic";
+import { getPortfolios } from "./portfoliosData";
 
-// Get all unique stocks from all portfolios
-export const getAllStocks = () => {
+// Get all unique stocks from all portfolios in the specified portfolio group
+export const getAllStocks = (groupName: string = "default") => {
+  const portfolios = getPortfolios(groupName);
   const allStocksSet = new Set<string>();
-  Object.values(PORTFOLIOS).forEach((portfolio) => {
+  Object.values(portfolios).forEach((portfolio) => {
     Object.keys(portfolio).forEach((stock) => {
       // Skip special "cash_amount" key - it's not a stock ticker
       if (stock !== "cash_amount") {
@@ -15,8 +16,10 @@ export const getAllStocks = () => {
   return Array.from(allStocksSet).sort();
 };
 
-// All unique stocks across all portfolios
-export const STOCKS = getAllStocks();
+// Helper function to get stocks for a specific group
+export const getStocks = (groupName: string = "default") => {
+  return getAllStocks(groupName);
+};
 
 // Combine all stocks' data into a single dataset using real API data
 export const combineStockData = async (
