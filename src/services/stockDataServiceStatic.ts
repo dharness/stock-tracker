@@ -4,7 +4,7 @@
 
 // Use process.env.PUBLIC_URL to handle GitHub Pages subdirectory correctly
 // process.env.PUBLIC_URL is set by Create React App based on the "homepage" field in package.json
-const STATIC_DATA_URL = `${process.env.PUBLIC_URL || ''}/data/stocks.json`;
+const STATIC_DATA_URL = `${process.env.PUBLIC_URL || ""}/data/stocks.json`;
 
 export interface PriceData {
   date: string;
@@ -44,12 +44,12 @@ const loadStaticData = async (): Promise<StaticStockData | null> => {
       const cacheBuster = `?t=${Date.now()}`;
       const urlWithCacheBuster = `${STATIC_DATA_URL}${cacheBuster}`;
       const response = await fetch(urlWithCacheBuster, {
-        cache: 'no-cache',
+        cache: "no-cache",
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
       });
       if (!response.ok) {
         console.warn("Static data file not found, returning null");
@@ -76,13 +76,13 @@ const loadStaticData = async (): Promise<StaticStockData | null> => {
 /**
  * Fetches historical stock data from static JSON file, filtered by year
  * @param symbol Stock ticker symbol (e.g., "AAPL")
- * @param year Year to filter data for (default: 2025)
+ * @param year Year to filter data for (default: 2026)
  * @param retries Not used, kept for interface compatibility
  * @returns Array of price data points with date and price for the specified year
  */
 export const fetchStockData = async (
   symbol: string,
-  year: number = 2025,
+  year: number = 2026,
   retries: number = 3
 ): Promise<PriceData[]> => {
   const staticData = await loadStaticData();
@@ -93,20 +93,22 @@ export const fetchStockData = async (
 
   // Try new format first (symbol key), then fall back to old format (symbol_year key)
   let allData = staticData.stocks[symbol] || [];
-  
+
   // If not found, try old format with year suffix
   if (allData.length === 0) {
     const oldKey = `${symbol}_${year}`;
     allData = staticData.stocks[oldKey] || [];
   }
-  
+
   // If still not found, try to find any year for this symbol (for migration)
   if (allData.length === 0) {
-    const symbolKeys = Object.keys(staticData.stocks).filter(key => key.startsWith(`${symbol}_`));
+    const symbolKeys = Object.keys(staticData.stocks).filter((key) =>
+      key.startsWith(`${symbol}_`)
+    );
     if (symbolKeys.length > 0) {
       // Merge all years of data for this symbol
       allData = [];
-      symbolKeys.forEach(key => {
+      symbolKeys.forEach((key) => {
         const yearData = staticData.stocks[key] || [];
         allData = allData.concat(yearData);
       });
@@ -160,14 +162,16 @@ export const fetchMultipleStockData = async (
   symbols.forEach((symbol) => {
     // Try new format first (symbol key), then fall back to old format
     let data = staticData.stocks[symbol] || [];
-    
+
     // If not found, try to find any year for this symbol (for migration)
     if (data.length === 0) {
-      const symbolKeys = Object.keys(staticData.stocks).filter(key => key.startsWith(`${symbol}_`));
+      const symbolKeys = Object.keys(staticData.stocks).filter((key) =>
+        key.startsWith(`${symbol}_`)
+      );
       if (symbolKeys.length > 0) {
         // Merge all years of data for this symbol
         data = [];
-        symbolKeys.forEach(key => {
+        symbolKeys.forEach((key) => {
           const yearData = staticData.stocks[key] || [];
           data = data.concat(yearData);
         });
@@ -175,7 +179,7 @@ export const fetchMultipleStockData = async (
         data.sort((a, b) => a.date.localeCompare(b.date));
       }
     }
-    
+
     if (data && data.length > 0) {
       dataMap.set(symbol, data);
     }
@@ -189,7 +193,7 @@ export const fetchMultipleStockData = async (
  * Calls onProgress for each stock as it's loaded, filtered by year
  * @param symbols Array of stock ticker symbols
  * @param onProgress Callback called when each stock is loaded (symbol, data, currentIndex, total)
- * @param year Year to filter data for (default: 2025)
+ * @param year Year to filter data for (default: 2026)
  * @param initialDelayMs Not used, kept for interface compatibility
  * @param rateLimitedDelayMs Not used, kept for interface compatibility
  */
@@ -201,7 +205,7 @@ export const fetchMultipleStockDataProgressive = async (
     currentIndex: number,
     total: number
   ) => void,
-  year: number = 2025,
+  year: number = 2026,
   initialDelayMs: number = 2000,
   rateLimitedDelayMs: number = 12000
 ): Promise<void> => {
@@ -223,20 +227,22 @@ export const fetchMultipleStockDataProgressive = async (
   symbols.forEach((symbol) => {
     // Try new format first (symbol key), then fall back to old format (symbol_year key)
     let allData = staticData.stocks[symbol] || [];
-    
+
     // If not found, try old format with year suffix
     if (allData.length === 0) {
       const oldKey = `${symbol}_${year}`;
       allData = staticData.stocks[oldKey] || [];
     }
-    
+
     // If still not found, try to find any year for this symbol (for migration)
     if (allData.length === 0) {
-      const symbolKeys = Object.keys(staticData.stocks).filter(key => key.startsWith(`${symbol}_`));
+      const symbolKeys = Object.keys(staticData.stocks).filter((key) =>
+        key.startsWith(`${symbol}_`)
+      );
       if (symbolKeys.length > 0) {
         // Merge all years of data for this symbol
         allData = [];
-        symbolKeys.forEach(key => {
+        symbolKeys.forEach((key) => {
           const yearData = staticData.stocks[key] || [];
           allData = allData.concat(yearData);
         });
@@ -244,7 +250,7 @@ export const fetchMultipleStockDataProgressive = async (
         allData.sort((a, b) => a.date.localeCompare(b.date));
       }
     }
-    
+
     // Filter data for the specified year
     const filteredData = allData.filter(
       (point) => point.date >= yearStart && point.date <= yearEnd

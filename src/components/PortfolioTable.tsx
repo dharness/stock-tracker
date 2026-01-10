@@ -1,5 +1,4 @@
 import React from "react";
-import { PORTFOLIOS } from "../data/portfoliosData";
 
 type CombinedPriceData = {
   date: string;
@@ -9,17 +8,22 @@ type CombinedPriceData = {
 interface PortfolioTableProps {
   data: CombinedPriceData[];
   year: number;
+  portfolios: {
+    [person: string]: {
+      [symbol: string]: number;
+    };
+  };
 }
 
-const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
+const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year, portfolios }) => {
   // Calculate portfolio values for each person (same logic as chart)
   const calculatePortfolioData = () => {
-    const people = Object.keys(PORTFOLIOS);
+    const people = Object.keys(portfolios);
 
     // Get all unique symbols from all portfolios (excluding cash_amount)
     const allSymbols = new Set<string>();
     people.forEach((person) => {
-      const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+      const portfolio = portfolios[person];
       Object.keys(portfolio).forEach((symbol) => {
         // Skip special "cash_amount" key - it's handled separately
         if (symbol !== "cash_amount") {
@@ -45,7 +49,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
     // Calculate shares for each person
     const shares: { [person: string]: { [symbol: string]: number } } = {};
     people.forEach((person) => {
-      const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+      const portfolio = portfolios[person];
       shares[person] = {};
       Object.entries(portfolio).forEach(([symbol, investment]) => {
         const initialPrice = initialPrices[symbol];
@@ -64,7 +68,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
       } as { date: string } & { [person: string]: number };
 
       people.forEach((person) => {
-        const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+        const portfolio = portfolios[person];
         let totalValue = 0;
 
         Object.keys(portfolio).forEach((symbol) => {
@@ -124,7 +128,7 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({ data, year }) => {
   };
 
   const portfolioData = calculatePortfolioData();
-  const people = Object.keys(PORTFOLIOS);
+  const people = Object.keys(portfolios);
 
   // Find January 1 baseline values for the selected year (use first data point if Jan 1 not found)
   const jan1Baseline: { [person: string]: number } = {};

@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { useParams } from "react-router-dom";
 import "./App.css";
 import PortfolioChart from "./components/PortfolioChart";
 import PortfolioGrid from "./components/PortfolioGrid";
 import PortfolioTable from "./components/PortfolioTable";
 import StockChart from "./components/StockChart";
 import StockTable from "./components/StockTable";
-import { STOCKS } from "./data/portfolios";
-import { PORTFOLIOS } from "./data/portfoliosData";
+import { getStocks } from "./data/portfolios";
+import { getPortfolios } from "./data/portfoliosData";
 import {
   fetchMultipleStockData,
   PriceData,
@@ -18,6 +19,14 @@ type CombinedDataPoint = {
 };
 
 function App() {
+  // Get group from URL parameter, default to "default" if not provided
+  const { group } = useParams<{ group?: string }>();
+  const groupName = group || "default";
+
+  // Get portfolios and stocks for the current group
+  const PORTFOLIOS = useMemo(() => getPortfolios(groupName), [groupName]);
+  const STOCKS = useMemo(() => getStocks(groupName), [groupName]);
+
   const [combinedData, setCombinedData] = useState<CombinedDataPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadedStocks, setLoadedStocks] = useState<string[]>([]);
@@ -25,7 +34,7 @@ function App() {
     "chart" | "table" | "portfolios"
   >("chart");
   const [stockView, setStockView] = useState<"chart" | "table">("chart");
-  const [year, setYear] = useState<2025 | 2026>(2025);
+  const [year, setYear] = useState<2025 | 2026>(2026);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string | null>(
     null
   );
@@ -90,7 +99,7 @@ function App() {
     return combined;
   };
 
-  // Load data directly from static JSON file on mount and when year changes
+  // Load data directly from static JSON file on mount and when year or group changes
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -128,7 +137,7 @@ function App() {
     };
 
     loadData();
-  }, [year]);
+  }, [year, STOCKS]);
 
   return (
     <div className="App">
@@ -194,6 +203,7 @@ function App() {
                           : generateEmptyDataPoints(loadedStocks, year)
                       }
                       year={year}
+                      portfolios={PORTFOLIOS}
                     />
                   ) : portfolioView === "table" ? (
                     <PortfolioTable
@@ -203,6 +213,7 @@ function App() {
                           : generateEmptyDataPoints(loadedStocks, year)
                       }
                       year={year}
+                      portfolios={PORTFOLIOS}
                     />
                   ) : (
                     <PortfolioGrid
@@ -212,6 +223,7 @@ function App() {
                           : generateEmptyDataPoints(loadedStocks, year)
                       }
                       year={year}
+                      portfolios={PORTFOLIOS}
                     />
                   )}
                 </div>

@@ -1,11 +1,15 @@
 // Script to fetch stock data from Stooq and save to JSON file
 // This runs in GitHub Actions daily to update stock data
 
+// Load environment variables from .env file if it exists
+require("dotenv").config();
+
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const { parse } = require("csv-parse/sync");
 const { fetchStockDataFromMassive } = require("./massiveStockFetcher");
+const { fetchCryptoData } = require("./cryptoFetcher");
 
 // ============================================================================
 // CONFIGURATION SECTION
@@ -25,22 +29,53 @@ const OUTPUT_PATH = path.join(OUTPUT_DIR, OUTPUT_FILE);
 // ============================================================================
 
 // Import portfolios from the single source of truth
-const PORTFOLIOS = require("../src/data/portfoliosData.json");
+const portfoliosData = require("../src/data/portfoliosData.json");
+const {
+  getFlattenedPortfolios,
+  getAllStocks,
+} = require("../src/shared/portfoliosHelper");
 
-const getAllStocks = () => {
-  const allStocksSet = new Set();
-  Object.values(PORTFOLIOS).forEach((portfolio) => {
-    Object.keys(portfolio).forEach((stock) => {
-      // Skip special "cash_amount" key - it's not a stock ticker
-      if (stock !== "cash_amount") {
-        allStocksSet.add(stock);
+// Get all unique stocks from ALL portfolio groups (not just default)
+// This ensures we fetch data for stocks in any group
+const getAllStocksFromAllGroups = () => {
+  if (portfoliosData.portfolios && portfoliosData.portfolioGroups) {
+    // Get all portfolio groups
+    const allGroupNames = Object.keys(portfoliosData.portfolioGroups);
+
+    // Collect all unique portfolio names from all groups
+    const allPortfolioNames = new Set();
+    allGroupNames.forEach((groupName) => {
+      const group = portfoliosData.portfolioGroups[groupName];
+      if (Array.isArray(group)) {
+        group.forEach((portfolioName) => allPortfolioNames.add(portfolioName));
       }
     });
-  });
-  return Array.from(allStocksSet).sort();
+
+    // Build flattened object from all portfolios across all groups
+    const allPortfolios = {};
+    allPortfolioNames.forEach((portfolioName) => {
+      if (portfoliosData.portfolios[portfolioName]) {
+        allPortfolios[portfolioName] = portfoliosData.portfolios[portfolioName];
+      }
+    });
+
+    // Extract all stocks and deduplicate (getAllStocks already uses Set internally)
+    const stocks = getAllStocks(allPortfolios);
+
+    // Explicit deduplication: convert to Set and back to array to ensure uniqueness
+    // This handles any edge cases where the same ticker might appear multiple times
+    const uniqueStocks = Array.from(new Set(stocks)).sort();
+
+    return uniqueStocks;
+  }
+
+  // Fallback: if no groups structure, use all portfolios directly
+  const stocks = getAllStocks(portfoliosData.portfolios || portfoliosData);
+  // Explicit deduplication
+  return Array.from(new Set(stocks)).sort();
 };
 
-const STOCKS = getAllStocks();
+const STOCKS = getAllStocksFromAllGroups();
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -102,34 +137,69 @@ const fetchStockData = async (ticker, retries = 3) => {
   return [];
 };
 
+/**
+ * Checks if a symbol is a crypto ticker (starts with CRYPTO:)
+ * @param {string} symbol The symbol to check
+ * @returns {boolean} True if it's a crypto ticker
+ */
+const isCrypto = (symbol) => {
+  return symbol.startsWith("CRYPTO:");
+};
+
+/**
+ * Extracts the crypto ticker from CRYPTO: prefix
+ * @param {string} symbol The symbol (e.g., "CRYPTO:SOL")
+ * @returns {string} The ticker without prefix (e.g., "SOL")
+ */
+const extractCryptoTicker = (symbol) => {
+  return symbol.replace("CRYPTO:", "");
+};
+
 const fetchAllStocks = async () => {
   const dataMap = {};
 
-  console.log(`\nFetching all historical data for ${STOCKS.length} stocks...`);
+  console.log(`\nFetching all historical data for ${STOCKS.length} assets...`);
 
   for (let i = 0; i < STOCKS.length; i++) {
     const symbol = STOCKS[i];
     try {
       console.log(`Fetching ${symbol} (${i + 1}/${STOCKS.length})...`);
 
-      // Try Stooq first
-      let data = await fetchStockData(symbol);
+      let data = [];
 
-      // If Stooq didn't return data, try Massive API as fallback
-      if (data.length === 0) {
-        console.log(`  No data from Stooq, trying Massive API...`);
+      // Check if this is a crypto ticker
+      if (isCrypto(symbol)) {
+        const cryptoTicker = extractCryptoTicker(symbol);
+        console.log(`  Detected crypto: ${cryptoTicker}`);
         try {
-          data = await fetchStockDataFromMassive(symbol);
+          data = await fetchCryptoData(cryptoTicker);
           if (data.length > 0) {
-            console.log(`  ✓ Got data from Massive API fallback`);
+            console.log(`  ✓ Got crypto data from CoinGecko`);
           }
-        } catch (massiveError) {
-          console.warn(`  Massive API also failed: ${massiveError.message}`);
+        } catch (cryptoError) {
+          console.warn(`  Crypto fetch failed: ${cryptoError.message}`);
+        }
+      } else {
+        // Regular stock - try Stooq first
+        data = await fetchStockData(symbol);
+
+        // If Stooq didn't return data, try Massive API as fallback
+        if (data.length === 0) {
+          console.log(`  No data from Stooq, trying Massive API...`);
+          try {
+            data = await fetchStockDataFromMassive(symbol);
+            if (data.length > 0) {
+              console.log(`  ✓ Got data from Massive API fallback`);
+            }
+          } catch (massiveError) {
+            console.warn(`  Massive API also failed: ${massiveError.message}`);
+          }
         }
       }
 
       if (data.length > 0) {
         // Store all data under symbol key (not year-specific)
+        // Keep the CRYPTO: prefix in the key for identification
         dataMap[symbol] = data;
         const dateRange =
           data.length > 0

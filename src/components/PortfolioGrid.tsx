@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { PORTFOLIOS } from "../data/portfoliosData";
 
 interface PortfolioGridProps {
   data: Array<{
@@ -7,10 +6,15 @@ interface PortfolioGridProps {
     [symbol: string]: string | number | null;
   }>;
   year: number;
+  portfolios: {
+    [person: string]: {
+      [symbol: string]: number;
+    };
+  };
 }
 
-const PortfolioGrid: React.FC<PortfolioGridProps> = ({ data, year }) => {
-  const people = Object.keys(PORTFOLIOS);
+const PortfolioGrid: React.FC<PortfolioGridProps> = ({ data, year, portfolios }) => {
+  const people = Object.keys(portfolios);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -39,7 +43,7 @@ const PortfolioGrid: React.FC<PortfolioGridProps> = ({ data, year }) => {
 
   // Calculate current portfolio value for each person
   const getPortfolioValue = (person: string): number => {
-    const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+      const portfolio = portfolios[person];
     let totalValue = 0;
 
     Object.entries(portfolio).forEach(([symbol, investment]) => {
@@ -73,13 +77,13 @@ const PortfolioGrid: React.FC<PortfolioGridProps> = ({ data, year }) => {
 
   // Calculate gains for all people and sort by gain (then alphabetically for ties)
   const peopleWithGains = people.map((person) => {
-    const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+      const portfolio = portfolios[person];
     const portfolioValue = getPortfolioValue(person);
     const totalInvestment = Object.values(portfolio).reduce((sum, val) => sum + val, 0);
     const gain = portfolioValue - totalInvestment;
     return { person, gain, portfolioValue, totalInvestment };
   }).filter(({ person }) => {
-    const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+      const portfolio = portfolios[person];
     return Object.keys(portfolio).length > 0;
   }).sort((a, b) => {
     // First sort by gain (descending)
@@ -124,7 +128,7 @@ const PortfolioGrid: React.FC<PortfolioGridProps> = ({ data, year }) => {
     <div className="portfolio-grid-container">
       <div className="portfolio-grid">
         {rankedPeople.map(({ person, gain, portfolioValue, totalInvestment, rank }) => {
-          const portfolio = PORTFOLIOS[person as keyof typeof PORTFOLIOS];
+          const portfolio = portfolios[person];
           const stocks = Object.keys(portfolio).filter((symbol) => symbol !== "cash_amount");
           const gainPercent = totalInvestment > 0 ? (gain / totalInvestment) * 100 : 0;
 
