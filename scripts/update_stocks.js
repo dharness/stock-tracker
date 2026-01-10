@@ -1,6 +1,9 @@
 // Script to fetch stock data from Stooq and save to JSON file
 // This runs in GitHub Actions daily to update stock data
 
+// Load environment variables from .env file if it exists
+require("dotenv").config();
+
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
