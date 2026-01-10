@@ -30,10 +30,33 @@
     },
     "Faith": {
       "cash_amount": 100000
+    },
+    "Tianna": {
+      "VOO": 100000
+    },
+    "Mike": {
+      "cash_amount": 30000,
+      "PFE": 15000,
+      "CVX": 20000,
+      "TSLA": 15000,
+      "MG": 10000,
+      "PG": 10000
+    },
+    "Keith": {
+      "LGND": 10000,
+      "MSFT": 10000,
+      "NVDA": 10000,
+      "AMZN": 10000,
+      "MU": 10000,
+      "SNDK": 10000,
+      "GOOG": 10000,
+      "LLY": 10000,
+      "CRYPTO:SOL": 10000,
+      "CRYPTO:BTC": 10000
     }
   },
   "portfolioGroups": {
     "default": ["Naila", "Colby", "Dylan", "Faith"],
-    "betting": ["Naila", "Dylan"]
+    "betting": ["Naila", "Dylan", "Tianna", "Keith", "Mike"]
   }
 }
