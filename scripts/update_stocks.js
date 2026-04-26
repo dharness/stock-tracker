@@ -1,4 +1,5 @@
-// Script to fetch stock data from Stooq and save to JSON file
+// Script to fetch stock data and save to JSON file
+// Primary source: Massive API. Stooq used as fallback if STOOQ_API_KEY is set.
 // This runs in GitHub Actions daily to update stock data
 
 // Load environment variables from .env file if it exists
@@ -17,6 +18,7 @@ const { fetchCryptoData } = require("./cryptoFetcher");
 
 // API Configuration
 const STOOQ_BASE_URL = "https://stooq.com/q/d/l/";
+const STOOQ_API_KEY = process.env.STOOQ_API_KEY;
 const DELAY_BETWEEN_REQUESTS_MS = 5000;
 
 // Output configuration
@@ -86,7 +88,8 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 const fetchStockData = async (ticker, retries = 3) => {
   // Stooq uses .US suffix for American exchanges
-  const url = `${STOOQ_BASE_URL}?s=${ticker}.US&i=d`;
+  const apiKeyParam = STOOQ_API_KEY ? `&apikey=${STOOQ_API_KEY}` : "";
+  const url = `${STOOQ_BASE_URL}?s=${ticker}.US&i=d${apiKeyParam}`;
 
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
@@ -180,19 +183,26 @@ const fetchAllStocks = async () => {
           console.warn(`  Crypto fetch failed: ${cryptoError.message}`);
         }
       } else {
-        // Regular stock - try Stooq first
-        data = await fetchStockData(symbol);
+        // Regular stock - try Massive API first
+        try {
+          data = await fetchStockDataFromMassive(symbol);
+          if (data.length > 0) {
+            console.log(`  ✓ Got data from Massive API`);
+          }
+        } catch (massiveError) {
+          console.warn(`  Massive API failed: ${massiveError.message}`);
+        }
 
-        // If Stooq didn't return data, try Massive API as fallback
-        if (data.length === 0) {
-          console.log(`  No data from Stooq, trying Massive API...`);
+        // If Massive didn't return data and we have a Stooq key, try Stooq as fallback
+        if (data.length === 0 && STOOQ_API_KEY) {
+          console.log(`  No data from Massive, trying Stooq...`);
           try {
-            data = await fetchStockDataFromMassive(symbol);
+            data = await fetchStockData(symbol);
             if (data.length > 0) {
-              console.log(`  ✓ Got data from Massive API fallback`);
+              console.log(`  ✓ Got data from Stooq fallback`);
             }
-          } catch (massiveError) {
-            console.warn(`  Massive API also failed: ${massiveError.message}`);
+          } catch (stooqError) {
+            console.warn(`  Stooq also failed: ${stooqError.message}`);
           }
         }
       }
@@ -212,14 +222,11 @@ const fetchAllStocks = async () => {
         console.warn(`⚠ No data found for ${symbol} from any source`);
       }
 
-      // 2 second delay between requests
       if (i < STOCKS.length - 1) {
         await delay(DELAY_BETWEEN_REQUESTS_MS);
       }
     } catch (error) {
       console.error(`✗ Failed to fetch ${symbol}:`, error.message);
-      // Continue with next stock even if one fails
-      // Still add delay before next request
       if (i < STOCKS.length - 1) {
         await delay(DELAY_BETWEEN_REQUESTS_MS);
       }
