@@ -85,8 +85,9 @@ const fetchStockDataFromMassive = async (ticker, retries = 3) => {
         );
       }
 
-      // Exponential backoff for retries
-      await delay(Math.pow(2, attempt) * 1000);
+      // On 429, wait longer before retrying
+      const backoff = statusCode === 429 ? 30000 : Math.pow(2, attempt) * 1000;
+      await delay(backoff);
     }
   }
 

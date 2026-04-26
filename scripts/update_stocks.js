@@ -19,7 +19,7 @@ const { fetchCryptoData } = require("./cryptoFetcher");
 // API Configuration
 const STOOQ_BASE_URL = "https://stooq.com/q/d/l/";
 const STOOQ_API_KEY = process.env.STOOQ_API_KEY;
-const DELAY_BETWEEN_REQUESTS_MS = 5000;
+const DELAY_BETWEEN_REQUESTS_MS = 15000;
 
 // Output configuration
 const OUTPUT_FILE = "stocks.json";
